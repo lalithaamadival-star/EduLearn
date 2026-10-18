@@ -81,9 +81,10 @@ export function AudioPlayer({
       try {
         const res = await api.synthesizeTTS(transcript, language, voiceId);
         if (res && res.audio_url) {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://edulearn-backend-n787.onrender.com';
           const resolvedUrl = res.audio_url.startsWith('http')
             ? res.audio_url
-            : `http://localhost:8000${res.audio_url}`;
+            : `${apiBase}${res.audio_url}`;
 
           setActiveAudioUrl(resolvedUrl);
           setCurrentVoiceName(res.voice_name || (language === 'kn' ? 'Microsoft Neural (Sapna - Kannada)' : 'Microsoft Neural (Prabhat - Indian English)'));

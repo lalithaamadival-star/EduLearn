@@ -4,7 +4,7 @@ import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { api } from '../../services/api';
 
 const AuditoryOrientationContext = createContext(null);
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://edulearn-backend-n787.onrender.com';
 
 export function AuditoryOrientationProvider({ children }) {
   const { preferences, updatePreference, toggleTheme, isLight } = useAccessibility();
