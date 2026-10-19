@@ -5,7 +5,7 @@ import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOri
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { BookOpen, ArrowRight, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
+import { BookOpen, ArrowRight, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw, UserCheck } from 'lucide-react';
 
 export function CourseLibraryPage() {
   const { announce, updateOrientation } = useAuditoryOrientation();
@@ -119,24 +119,19 @@ export function CourseLibraryPage() {
 
               <div className="space-y-4 pt-4 border-t border-slate-800/80">
                 <div className="flex items-center justify-between text-2xs text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-slate-400" />
-                    {course.enrollment_count || 32} enrolled
+                  <span className="flex items-center gap-1 font-medium text-slate-300">
+                    <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                    Instructor: {course.instructor_name || 'Faculty Educator'}
                   </span>
-                  <span className="text-emerald-400 font-semibold">
-                    {course.completion_rate || 80}% cohort mastery
+                  <span className="text-3xs font-mono text-slate-400">
+                    {course.instructor_organization || 'Department of Computing'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Link to={`/courses/${course.slug}/lessons/variables-and-memory`} className="flex-1">
+                  <Link to={`/student/courses/${course.slug}`} className="flex-1">
                     <Button variant="primary" size="md" className="w-full text-xs" icon={ArrowRight}>
-                      Open Lesson Reader
-                    </Button>
-                  </Link>
-                  <Link to={`/student/courses/${course.slug}`}>
-                    <Button variant="outline" size="md" className="text-xs">
-                      Syllabus
+                      Explore Syllabus & Lessons
                     </Button>
                   </Link>
                 </div>
@@ -230,12 +225,48 @@ export function CourseDetailPage() {
         <p className="text-sm text-slate-300 leading-relaxed">{course.description}</p>
       </div>
 
+      {/* Course Instructor Card */}
+      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 flex items-center justify-center">
+            <SymbolIcon name="learning" className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-3xs uppercase font-mono font-bold text-amber-400">Course Instructor</span>
+              <span className="text-3xs text-slate-400">• {course.instructor_organization || 'Department of Computing'}</span>
+            </div>
+            <h3 className="text-sm font-bold text-white">{course.instructor_name || 'Faculty Educator'}</h3>
+            {course.instructor_email && (
+              <p className="text-2xs text-slate-400 font-mono">{course.instructor_email}</p>
+            )}
+          </div>
+        </div>
+
+        {course.instructor_email && (
+          <a href={`mailto:${course.instructor_email}`}>
+            <Button variant="outline" size="sm" className="text-xs">
+              Contact Instructor
+            </Button>
+          </a>
+        )}
+      </div>
+
       <div className="space-y-6">
         <h2 className="text-lg font-bold text-white uppercase tracking-wider font-mono text-xs">
           Curriculum Modules & Lessons
         </h2>
 
-        {course.modules?.map((mod, idx) => (
+        {!course.modules || course.modules.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <BookOpen className="w-8 h-8 text-slate-500 mx-auto" />
+            <h3 className="text-base font-bold text-slate-200">No Modules Published Yet</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Your instructor ({course.instructor_name || 'Educator'}) is authoring lessons for this curriculum. Please check back soon.
+            </p>
+          </div>
+        ) : (
+          course.modules.map((mod, idx) => (
           <div key={mod.id || idx} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-lg">
             <div>
               <h3 className="text-base font-bold text-slate-100">{mod.title}</h3>
@@ -276,7 +307,8 @@ export function CourseDetailPage() {
               })}
             </div>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Pushed Assessments Section */}

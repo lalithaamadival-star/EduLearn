@@ -27,6 +27,7 @@ class LiveSupabaseDataStore:
         self.notes: List[Dict[str, Any]] = []
         self.bookmarks: List[Dict[str, Any]] = []
         self.revision_records: List[Dict[str, Any]] = []
+        self.classes: List[Dict[str, Any]] = []
 
         self.db_url = settings.DATABASE_URL
         self.load_from_database()
@@ -112,11 +113,37 @@ class LiveSupabaseDataStore:
             cur.execute("SELECT * FROM public.revision_items ORDER BY created_at DESC;")
             self.revision_records = [self._serialize_row(r) for r in cur.fetchall()]
 
+            # 14. Classes
+            try:
+                cur.execute("SELECT * FROM public.classes ORDER BY created_at DESC;")
+                self.classes = [self._serialize_row(r) for r in cur.fetchall()]
+            except Exception as ce:
+                logger.warning(f"Could not load classes table: {ce}")
+                self.classes = []
+
             cur.close()
             conn.close()
-            logger.info(f"Loaded live data from Supabase: {len(self.courses)} courses, {len(self.lessons)} lessons, {len(self.assignments)} assignments")
+            logger.info(f"Loaded live data from Supabase: {len(self.courses)} courses, {len(self.lessons)} lessons, {len(self.assignments)} assignments, {len(self.classes)} classes")
         except Exception as e:
             logger.error(f"Error loading from Supabase database: {e}", exc_info=True)
+
+    def sync_profiles(self):
+        """Synchronizes profiles and accessibility preferences from Supabase to reflect new registrations immediately."""
+        if not self.db_url:
+            return
+        try:
+            conn = self._get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM public.profiles;")
+            for r in cur.fetchall():
+                self.profiles[str(r['id'])] = self._serialize_row(r)
+            cur.execute("SELECT * FROM public.accessibility_preferences;")
+            for r in cur.fetchall():
+                self.accessibility_preferences[str(r['user_id'])] = self._serialize_row(r)
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Failed to sync profiles from Supabase: {e}")
 
     # --------------------------------------------------------------------------
     # Live Mutation Methods (Persist directly to Supabase)
@@ -425,5 +452,48 @@ class LiveSupabaseDataStore:
             logger.info(f"Persisted lesson to Supabase: {lid}")
         except Exception as e:
             logger.error(f"Failed to persist lesson to Supabase: {e}")
+
+    def save_class(self, class_dict: Dict[str, Any]) -> Dict[str, Any]:
+        raw_id = class_dict.get("id")
+        try:
+            uuid.UUID(str(raw_id))
+            cls_id = str(raw_id)
+        except (ValueError, AttributeError, TypeError):
+            cls_id = str(uuid.uuid4())
+        class_dict["id"] = cls_id
+
+        existing_idx = next((i for i, c in enumerate(self.classes) if c["id"] == cls_id), None)
+        if existing_idx is not None:
+            self.classes[existing_idx] = class_dict
+        else:
+            self.classes.insert(0, class_dict)
+
+        try:
+            conn = self._get_connection()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO public.classes (
+                    id, teacher_id, title, code, academic_term, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    code = EXCLUDED.code,
+                    academic_term = EXCLUDED.academic_term,
+                    updated_at = NOW();
+            """, (
+                cls_id,
+                class_dict.get("teacher_id"),
+                class_dict.get("title", "Active Class Cohort"),
+                class_dict.get("code", "CS-101"),
+                class_dict.get("academic_term", "Fall 2026")
+            ))
+            cur.close()
+            conn.close()
+            logger.info(f"Persisted class cohort to Supabase: {cls_id}")
+        except Exception as e:
+            logger.error(f"Failed to persist class to Supabase: {e}")
+
+        return class_dict
 
 data_store = LiveSupabaseDataStore()

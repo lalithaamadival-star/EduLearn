@@ -8,9 +8,30 @@ from app.core.security import get_current_user, require_role
 
 router = APIRouter(prefix="/api/courses", tags=["Courses"])
 
+def enrich_course_with_teacher(course: Dict[str, Any]) -> Dict[str, Any]:
+    c = dict(course)
+    t_id = str(c.get("teacher_id") or "")
+    teacher = data_store.profiles.get(t_id)
+
+    # If teacher_id is not set or not cached, sync from database
+    if not teacher:
+        data_store.sync_profiles()
+        teacher = data_store.profiles.get(t_id)
+
+    # Fallback to first teacher in profiles
+    if not teacher:
+        teachers = [p for p in data_store.profiles.values() if (p.get("role") or "").strip().upper() == "TEACHER"]
+        if teachers:
+            teacher = teachers[0]
+
+    c["instructor_name"] = teacher["full_name"] if teacher else "Faculty Educator"
+    c["instructor_email"] = teacher.get("email") if teacher else None
+    c["instructor_organization"] = teacher.get("organization") if teacher else "Department of Computing"
+    return c
+
 @router.get("")
 async def list_courses(user: Dict[str, Any] = Depends(get_current_user)):
-    courses = list(data_store.courses.values())
+    courses = [enrich_course_with_teacher(c) for c in data_store.courses.values()]
     return courses
 
 @router.get("/{course_id}")
@@ -26,6 +47,8 @@ async def get_course_detail(course_id: str, user: Dict[str, Any] = Depends(get_c
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    enriched = enrich_course_with_teacher(course)
+
     # Find modules and lessons
     c_id = course["id"]
     course_modules = [m for m in data_store.modules.values() if m["course_id"] == c_id]
@@ -38,7 +61,7 @@ async def get_course_detail(course_id: str, user: Dict[str, Any] = Depends(get_c
         mod["lessons"] = lessons
 
     return {
-        **course,
+        **enriched,
         "modules": course_modules
     }
 

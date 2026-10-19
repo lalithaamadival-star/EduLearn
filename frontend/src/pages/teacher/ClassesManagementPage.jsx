@@ -25,28 +25,23 @@ export function ClassesManagementPage() {
     }).finally(() => setLoading(false));
   }, []);
 
-  const handleCreateClass = (e) => {
+  const handleCreateClass = async (e) => {
     e.preventDefault();
-    const newClass = {
-      id: `cls-${Date.now()}`,
-      title: newTitle,
-      code: newCode || `CS${Math.floor(Math.random() * 800 + 100)}`,
-      academic_term: "Fall 2026",
-      enrolled_students: [
-        {
-          id: "stu-new-1",
-          full_name: "Aarav Patel",
-          email: "aarav.p@accessed.edu",
-          preferred_mode: "Cognitive Simplified",
-          completion_rate: 90
-        }
-      ]
-    };
-    setClasses(prev => [newClass, ...prev]);
-    setCreateModalOpen(false);
-    setNewTitle('');
-    setNewCode('');
-    announce(`Created new class cohort: ${newTitle}.`, 'polite');
+    if (!newTitle.trim()) return;
+    try {
+      const created = await api.createClass({
+        title: newTitle.trim(),
+        code: newCode.trim() || undefined,
+        academic_term: "Fall 2026"
+      });
+      setClasses(prev => [created, ...prev]);
+      setCreateModalOpen(false);
+      setNewTitle('');
+      setNewCode('');
+      announce(`Created new class cohort: ${newTitle}.`, 'polite');
+    } catch (err) {
+      announce("Failed to create class cohort. Please retry.", "assertive");
+    }
   };
 
   if (loading) {
@@ -62,7 +57,7 @@ export function ClassesManagementPage() {
           </span>
           <h1 className="text-3xl font-extrabold text-white">Class Management</h1>
           <p className="text-xs text-slate-400">
-            Monitor student accessibility preferences and learning trajectories by class cohort.
+            Monitor real registered students and their active accessibility preferences by cohort.
           </p>
         </div>
 
@@ -72,45 +67,78 @@ export function ClassesManagementPage() {
       </div>
 
       <div className="space-y-6">
-        {classes.map(cls => (
-          <div key={cls.id} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
-              <div>
-                <h2 className="text-lg font-bold text-white">{cls.title}</h2>
-                <div className="text-2xs font-mono text-slate-400">Code: {cls.code} • {cls.academic_term}</div>
-              </div>
-              <Badge variant="primary">{cls.enrolled_students?.length || 0} Students Enrolled</Badge>
-            </div>
-
-            {/* Students Table */}
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
-                Enrolled Students & Active Accessibility Preferences
-              </div>
-              <div className="divide-y divide-slate-800 border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
-                {cls.enrolled_students?.map(stu => (
-                  <div key={stu.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <div className="font-semibold text-slate-100">{stu.full_name}</div>
-                      <div className="text-2xs text-slate-400 font-mono">{stu.email}</div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="text-left sm:text-right">
-                        <div className="text-2xs font-mono text-indigo-400 font-bold">
-                          {stu.preferred_mode}
-                        </div>
-                        <div className="text-3xs text-slate-400">Active Modality Preference</div>
-                      </div>
-
-                      <Badge variant="success">{stu.completion_rate}% Mastery</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {classes.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <Users className="w-8 h-8 text-slate-500 mx-auto" />
+            <h3 className="text-base font-bold text-slate-200">No Class Cohorts Created</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Create your first class cohort to start tracking student accessibility and curriculum progress.
+            </p>
+            <div className="pt-2">
+              <Button variant="accent" size="sm" onClick={() => setCreateModalOpen(true)} icon={Plus}>
+                Create Cohort Now
+              </Button>
             </div>
           </div>
-        ))}
+        ) : (
+          classes.map(cls => (
+            <div key={cls.id} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                <div>
+                  <h2 className="text-lg font-bold text-white">{cls.title}</h2>
+                  <div className="text-2xs font-mono text-slate-400">Code: {cls.code} • {cls.academic_term}</div>
+                </div>
+                <Badge variant="primary">{cls.enrolled_students?.length || 0} Registered Students</Badge>
+              </div>
+
+              {/* Students Table */}
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                  Enrolled Students & Verified Accessibility Profiles
+                </div>
+
+                {!cls.enrolled_students || cls.enrolled_students.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <Users className="w-5 h-5 text-slate-500 mx-auto mb-1" />
+                    <div className="font-semibold text-slate-300">No Students Registered Yet</div>
+                    <div className="text-2xs text-slate-500">
+                      When students register on AccessEd, their verified profiles and preferred modalities will appear here.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-800 border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
+                    {cls.enrolled_students.map(stu => (
+                      <div key={stu.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="space-y-0.5">
+                          <div className="font-semibold text-slate-100 flex items-center gap-2">
+                            <span>{stu.full_name}</span>
+                            <span className="text-3xs px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">
+                              {stu.organization || 'Student'}
+                            </span>
+                          </div>
+                          <div className="text-2xs text-slate-400 font-mono">{stu.email}</div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-left sm:text-right">
+                            <div className="text-2xs font-mono text-indigo-400 font-bold">
+                              {stu.preferred_mode}
+                            </div>
+                            <div className="text-3xs text-slate-400">Active Modality Preference</div>
+                          </div>
+
+                          <Badge variant={stu.completion_rate > 0 ? "success" : "neutral"}>
+                            {stu.completion_rate}% Mastery
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <Modal

@@ -25,13 +25,13 @@ export function ProfilePage() {
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-2xl font-bold font-mono">
-            {user?.full_name?.charAt(0) || 'R'}
+            {user?.full_name?.charAt(0) || 'S'}
           </div>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold text-white">{user?.full_name || 'Rahul Verma'}</h2>
+            <h2 className="text-xl font-bold text-white">{user?.full_name || 'Enrolled Student'}</h2>
             <div className="flex items-center gap-2">
               <Badge variant="primary">{user?.role || 'STUDENT'}</Badge>
-              <span className="text-xs text-slate-400">{user?.organization || 'AccessEd Cohort'}</span>
+              <span className="text-xs text-slate-400">{user?.organization || 'AccessEd Learner'}</span>
             </div>
           </div>
         </div>
@@ -39,7 +39,7 @@ export function ProfilePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-800">
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
             <span className="text-slate-400">Email Address</span>
-            <div className="font-semibold text-slate-200">{user?.email || 'rahul.verma@accessed.edu'}</div>
+            <div className="font-semibold text-slate-200">{user?.email || 'N/A'}</div>
           </div>
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
             <span className="text-slate-400">Preferred Language</span>

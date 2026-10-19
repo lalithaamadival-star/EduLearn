@@ -224,6 +224,16 @@ export const api = {
     return res.json();
   },
 
+  async createClass(data) {
+    const res = await fetch(`${API_BASE}/api/teachers/classes`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create class cohort');
+    return res.json();
+  },
+
   async getDocumentJobs() {
     const res = await fetch(`${API_BASE}/api/documents`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load document jobs');

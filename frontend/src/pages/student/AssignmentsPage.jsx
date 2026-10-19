@@ -61,51 +61,61 @@ export function AssignmentsPage() {
       </div>
 
       <div className="space-y-6">
-        {assignments.map(asg => (
-          <div
-            key={asg.id}
-            className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 hover:border-slate-700 transition-colors"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Badge variant={asg.status === 'SUBMITTED' ? 'primary' : 'warning'}>
-                  {asg.status}
-                </Badge>
-                <span className="text-2xs font-mono text-slate-400">{asg.course_title}</span>
-              </div>
-              <span className="text-2xs text-slate-400 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> Due Oct 25, 2026
-              </span>
-            </div>
-
-            <h2 className="text-lg font-bold text-slate-100">{asg.title}</h2>
-            <p className="text-xs text-slate-300 leading-relaxed">{asg.instructions}</p>
-
-            {/* Teacher Feedback Block if graded */}
-            {asg.feedback && (
-              <div className="p-4 rounded-xl bg-indigo-950/40 border border-indigo-700/50 space-y-2 text-xs">
-                <div className="flex items-center gap-2 font-bold text-indigo-300">
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Instructor Evaluation • Score: {asg.score}/{asg.max_score}</span>
-                </div>
-                <p className="text-slate-300 leading-relaxed italic">"{asg.feedback}"</p>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-              <span className="text-2xs font-mono text-slate-400">Max Score: {asg.max_score} pts</span>
-              {asg.status !== 'SUBMITTED' ? (
-                <Button variant="primary" size="sm" onClick={() => setSelectedAsg(asg)}>
-                  Submit Solution
-                </Button>
-              ) : (
-                <span className="text-2xs text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Solution Submitted
-                </span>
-              )}
-            </div>
+        {assignments.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <FileCheck2 className="w-10 h-10 text-slate-600 mx-auto" />
+            <h3 className="text-base font-bold text-slate-300">No Coursework Assigned Yet</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              When your instructor publishes technical problem sets or coursework for your enrolled modules, they will appear here.
+            </p>
           </div>
-        ))}
+        ) : (
+          assignments.map(asg => (
+            <div
+              key={asg.id}
+              className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 hover:border-slate-700 transition-colors"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant={asg.status === 'SUBMITTED' ? 'primary' : 'warning'}>
+                    {asg.status}
+                  </Badge>
+                  <span className="text-2xs font-mono text-slate-400">{asg.course_title}</span>
+                </div>
+                <span className="text-2xs text-slate-400 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" /> Due Soon
+                </span>
+              </div>
+
+              <h2 className="text-lg font-bold text-slate-100">{asg.title}</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">{asg.instructions}</p>
+
+              {/* Teacher Feedback Block if graded */}
+              {asg.feedback && (
+                <div className="p-4 rounded-xl bg-indigo-950/40 border border-indigo-700/50 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-indigo-300">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Instructor Evaluation • Score: {asg.score}/{asg.max_score}</span>
+                  </div>
+                  <p className="text-slate-300 leading-relaxed italic">"{asg.feedback}"</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                <span className="text-2xs font-mono text-slate-400">Max Score: {asg.max_score} pts</span>
+                {asg.status !== 'SUBMITTED' ? (
+                  <Button variant="primary" size="sm" onClick={() => setSelectedAsg(asg)}>
+                    Submit Solution
+                  </Button>
+                ) : (
+                  <span className="text-2xs text-emerald-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Solution Submitted
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Submission Modal Dialog */}

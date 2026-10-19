@@ -62,28 +62,45 @@ export function TeacherCoursesPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {courses.map(course => (
-          <div key={course.id} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <Badge variant="primary">{course.category}</Badge>
-              <Badge variant={course.is_published ? "success" : "neutral"}>
-                {course.is_published ? "Published" : "Draft"}
-              </Badge>
-            </div>
-            <h2 className="text-xl font-bold text-white">{course.title}</h2>
-            <p className="text-xs text-slate-300 leading-relaxed">{course.description}</p>
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-2xs font-mono text-slate-400">Accessible Multi-Modal Curriculum</span>
-              <Link to={`/courses/${course.slug}`}>
-                <Button variant="secondary" size="sm" icon={ArrowRight}>
-                  View Syllabus & Quizzes
-                </Button>
-              </Link>
-            </div>
+      {courses.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+          <BookOpen className="w-8 h-8 text-slate-500 mx-auto" />
+          <h3 className="text-base font-bold text-slate-200">No Courses Authored Yet</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            You have not authored any curriculum yet. Create your first course or author a lesson to get started.
+          </p>
+          <div className="pt-2">
+            <Link to="/teacher/lessons/new">
+              <Button variant="accent" size="sm" icon={Plus}>
+                Author Your First Lesson
+              </Button>
+            </Link>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {courses.map(course => (
+            <div key={course.id} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <Badge variant="primary">{course.category}</Badge>
+                <Badge variant={course.is_published ? "success" : "neutral"}>
+                  {course.is_published ? "Published" : "Draft"}
+                </Badge>
+              </div>
+              <h2 className="text-xl font-bold text-white">{course.title}</h2>
+              <p className="text-xs text-slate-300 leading-relaxed">{course.description}</p>
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-2xs font-mono text-slate-400">Accessible Multi-Modal Curriculum</span>
+                <Link to={`/courses/${course.slug}`}>
+                  <Button variant="secondary" size="sm" icon={ArrowRight}>
+                    View Syllabus & Quizzes
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

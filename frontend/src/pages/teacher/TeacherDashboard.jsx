@@ -100,7 +100,7 @@ export function TeacherDashboard() {
       </div>
 
       {/* Operational Alerts Priority Strip */}
-      {alerts?.length > 0 && (
+      {alerts?.length > 0 ? (
         <section aria-labelledby="alerts-heading" className="space-y-3">
           <h2 id="alerts-heading" className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider">
             Critical Review Items
@@ -124,6 +124,16 @@ export function TeacherDashboard() {
             ))}
           </div>
         </section>
+      ) : (
+        <section aria-labelledby="alerts-heading" className="space-y-3">
+          <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5 text-slate-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>All systems clear • No pending OCR document reviews or grading backlogs.</span>
+            </div>
+            <span className="text-2xs text-slate-400 font-mono">Status: Ready</span>
+          </div>
+        </section>
       )}
 
       {/* Structured Operational Tables: Classes & Submissions */}
@@ -140,23 +150,29 @@ export function TeacherDashboard() {
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
-            {classes.map(cls => (
-              <div key={cls.id} className="p-4 flex items-center justify-between gap-4 text-xs">
-                <div className="space-y-1">
-                  <div className="font-bold text-white text-sm">{cls.title}</div>
-                  <div className="flex items-center gap-3 text-2xs text-slate-400 font-mono">
-                    <span>Code: {cls.code}</span>
-                    <span>•</span>
-                    <span>{cls.students_count} students</span>
+            {classes && classes.length > 0 ? (
+              classes.map(cls => (
+                <div key={cls.id} className="p-4 flex items-center justify-between gap-4 text-xs">
+                  <div className="space-y-1">
+                    <div className="font-bold text-white text-sm">{cls.title}</div>
+                    <div className="flex items-center gap-3 text-2xs text-slate-400 font-mono">
+                      <span>Code: {cls.code}</span>
+                      <span>•</span>
+                      <span>{cls.students_count} students</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right space-y-1">
+                    <span className="text-xs font-bold text-emerald-400">{cls.avg_mastery}% avg</span>
+                    <div className="text-3xs text-slate-400">{cls.active_submissions} pending grading</div>
                   </div>
                 </div>
-
-                <div className="text-right space-y-1">
-                  <span className="text-xs font-bold text-emerald-400">{cls.avg_mastery}% avg</span>
-                  <div className="text-3xs text-slate-400">{cls.active_submissions} pending grading</div>
-                </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-slate-500">
+                No class cohorts created yet. Use Class Management to organize cohorts.
               </div>
-            ))}
+            )}
           </div>
         </section>
 
@@ -172,19 +188,27 @@ export function TeacherDashboard() {
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-            {recent_submissions.map(asg => (
-              <div key={asg.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200 truncate">{asg.title}</span>
-                  <Badge variant={asg.status === 'SUBMITTED' ? 'warning' : 'success'}>
-                    {asg.status}
-                  </Badge>
+            {recent_submissions && recent_submissions.length > 0 ? (
+              recent_submissions.map(asg => (
+                <div key={asg.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-200 truncate">{asg.title}</span>
+                    <Badge variant={asg.status === 'SUBMITTED' ? 'warning' : 'success'}>
+                      {asg.status}
+                    </Badge>
+                  </div>
+                  <div className="text-2xs text-slate-400 font-mono">
+                    Submitted by {asg.student_name || 'Enrolled Student'} {asg.score ? `• ${asg.score}/${asg.max_score}` : ''}
+                  </div>
                 </div>
-                <div className="text-2xs text-slate-400 font-mono">
-                  Submitted by Rahul Verma • 95/100
-                </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-slate-500 space-y-1">
+                <CheckCircle2 className="w-5 h-5 text-slate-600 mx-auto mb-1" />
+                <div className="font-semibold text-slate-300">No Submissions Pending</div>
+                <div className="text-2xs text-slate-500">Student submissions will appear here once assignments are completed.</div>
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>
