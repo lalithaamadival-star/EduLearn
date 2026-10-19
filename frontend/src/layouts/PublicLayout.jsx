@@ -4,14 +4,56 @@ import { OrientationBar } from '../features/accessibility/OrientationBar';
 import { SymbolIcon } from '../components/ui/SymbolIcon';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../features/auth/AuthContext';
+import { useAuditoryOrientation } from '../features/accessibility/AuditoryOrientationContext';
 import { Menu, X, ArrowRight, ShieldCheck, CheckCircle2, LogOut } from 'lucide-react';
 
 export function PublicLayout() {
   const { user, isTeacher, isStudent, logout } = useAuth();
+  const { updateOrientation } = useAuditoryOrientation();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  const navLinks = [
+  React.useEffect(() => {
+    let loc = 'AccessEd Home';
+    if (location.pathname === '/product') loc = 'Product Overview';
+    else if (location.pathname === '/accessibility') loc = 'Multimodal Accessibility Architecture';
+    else if (location.pathname === '/ai') loc = 'Contextual AI Engine';
+    else if (location.pathname === '/solutions') loc = 'Institutional Solutions';
+    else if (location.pathname === '/about') loc = 'About AccessEd';
+    else if (location.pathname === '/contact') loc = 'Contact & Support';
+    else if (location.pathname === '/signin') loc = 'Sign In to AccessEd';
+    else if (location.pathname === '/get-started') loc = 'Create AccessEd Account';
+    else if (isTeacher) loc = 'Teacher Workspace Home';
+    else if (isStudent) loc = 'Student Learning Home';
+
+    updateOrientation({
+      location: loc,
+      section: isTeacher ? 'Teacher Workspace' : isStudent ? 'Student Workspace' : 'Public Ecosystem',
+      actions: ['Explore platform', 'Access portal', 'Configure accessibility preferences']
+    });
+  }, [location.pathname, isTeacher, isStudent]);
+
+  const teacherNavLinks = [
+    { to: '/teacher', label: 'Dashboard' },
+    { to: '/teacher/classes', label: 'Classes' },
+    { to: '/teacher/courses', label: 'Courses' },
+    { to: '/teacher/documents', label: 'Document OCR' },
+    { to: '/teacher/assignments', label: 'Assignments' },
+    { to: '/teacher/analytics', label: 'Analytics' },
+    { to: '/contact', label: 'Contact' },
+  ];
+
+  const studentNavLinks = [
+    { to: '/student', label: 'Dashboard' },
+    { to: '/student/courses', label: 'My Courses' },
+    { to: '/student/assignments', label: 'Assignments' },
+    { to: '/student/ai-tutor', label: 'AI Tutor' },
+    { to: '/student/revision', label: 'Revision' },
+    { to: '/student/accessibility-center', label: 'Accessibility' },
+    { to: '/contact', label: 'Contact' },
+  ];
+
+  const publicNavLinks = [
     { to: '/', label: 'Home' },
     { to: '/product', label: 'Product' },
     { to: '/accessibility', label: 'Accessibility' },
@@ -20,6 +62,8 @@ export function PublicLayout() {
     { to: '/about', label: 'About' },
     { to: '/contact', label: 'Contact' },
   ];
+
+  const activeNavLinks = isTeacher ? teacherNavLinks : isStudent ? studentNavLinks : publicNavLinks;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
@@ -33,36 +77,49 @@ export function PublicLayout() {
 
       {/* Main Header */}
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-[33px] z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo & Wordmark */}
           <Link
-            to="/"
-            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg p-1"
-            aria-label="AccessEd Home"
+            to={isTeacher ? "/teacher" : isStudent ? "/student" : "/"}
+            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg p-1 shrink-0"
+            aria-label={isTeacher ? "AccessEd Teacher Suite" : isStudent ? "AccessEd Student Portal" : "AccessEd Home"}
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <SymbolIcon name="accessibility" className="w-5 h-5 text-indigo-400" />
+            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
+              isTeacher
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                : 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400'
+            }`}>
+              <SymbolIcon name={isTeacher ? "learning" : "accessibility"} className="w-5 h-5" />
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold tracking-tight text-lg text-white font-mono">
-                Access<span className="text-indigo-400">Ed</span>
+                Access<span className={isTeacher ? "text-amber-400" : "text-indigo-400"}>Ed</span>
               </span>
               <span className="text-2xs text-slate-400 uppercase tracking-widest hidden sm:block">
-                Inclusive Learning
+                {isTeacher ? "Teacher Suite" : isStudent ? "Student Workspace" : "Inclusive Learning"}
               </span>
             </div>
           </Link>
 
           {/* Desktop Nav */}
-          <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-6">
-            {navLinks.map(link => {
-              const isActive = location.pathname === link.to;
+          <nav aria-label="Main Navigation" className="hidden md:flex items-center gap-1 lg:gap-2">
+            {activeNavLinks.map(link => {
+              const isActive = link.to === '/'
+                ? location.pathname === '/'
+                : location.pathname === link.to || (link.to !== '/' && location.pathname.startsWith(link.to));
+
               return (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-sm font-medium transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded px-1.5 py-0.5 ${
-                    isActive ? 'text-indigo-400 font-semibold' : 'text-slate-300'
+                  className={`text-xs lg:text-sm font-medium transition-colors px-2.5 py-1 rounded-md focus-visible:outline-none focus-visible:ring-2 ${
+                    isTeacher
+                      ? isActive
+                        ? 'text-amber-300 font-semibold bg-amber-500/15 border border-amber-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      : isActive
+                        ? 'text-indigo-400 font-semibold bg-indigo-500/15 border border-indigo-500/30'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   {link.label}
@@ -71,27 +128,29 @@ export function PublicLayout() {
             })}
           </nav>
 
-          {/* Auth CTA Controls */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Auth Controls */}
+          <div className="hidden sm:flex items-center gap-3 shrink-0">
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
-                  <span className={`w-2 h-2 rounded-full ${isTeacher ? 'bg-amber-400' : 'bg-indigo-400'}`} />
-                  <span className="font-semibold text-slate-200 truncate max-w-[140px]">{user.full_name}</span>
-                  <span className={`text-3xs uppercase font-mono px-1.5 py-0.5 rounded ${isTeacher ? 'bg-amber-950 text-amber-300 border border-amber-800/60' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/60'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs ${
+                  isTeacher
+                    ? 'bg-amber-950/40 border-amber-800/60 text-amber-200'
+                    : 'bg-indigo-950/40 border-indigo-800/60 text-indigo-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isTeacher ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                  <span className="font-semibold text-slate-100 truncate max-w-[120px]">{user.full_name}</span>
+                  <span className={`text-3xs uppercase font-mono px-1.5 py-0.5 rounded ${
+                    isTeacher ? 'bg-amber-900/80 text-amber-300 border border-amber-700/60' : 'bg-indigo-900/80 text-indigo-300 border border-indigo-700/60'
+                  }`}>
                     {isTeacher ? 'Teacher' : 'Student'}
                   </span>
                 </div>
-                <Link to={isTeacher ? "/teacher" : "/student"}>
-                  <Button variant="primary" size="sm">
-                    Enter {isTeacher ? "Teacher Portal" : "Student Portal"}
-                  </Button>
-                </Link>
+
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={logout}
-                  className="text-rose-300 hover:text-rose-200 hover:bg-rose-950/40"
+                  className="text-xs text-rose-300 hover:text-rose-200 border-rose-800/50 hover:bg-rose-950/40 focus-visible:ring-rose-400"
                   icon={LogOut}
                 >
                   Sign Out
@@ -129,12 +188,16 @@ export function PublicLayout() {
         {/* Mobile menu dropdown */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-slate-800 bg-slate-900 px-4 pt-3 pb-6 space-y-2">
-            {navLinks.map(link => (
+            {activeNavLinks.map(link => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-base font-medium text-slate-200 hover:text-indigo-400"
+                className={`block py-2 text-sm font-medium transition-colors ${
+                  location.pathname === link.to
+                    ? isTeacher ? 'text-amber-300 font-semibold' : 'text-indigo-400 font-semibold'
+                    : 'text-slate-200 hover:text-white'
+                }`}
               >
                 {link.label}
               </Link>
@@ -148,14 +211,6 @@ export function PublicLayout() {
                       {isTeacher ? 'Teacher' : 'Student'}
                     </span>
                   </div>
-                  <Link
-                    to={isTeacher ? "/teacher" : "/student"}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Button variant="primary" className="w-full">
-                      Enter {isTeacher ? "Teacher Portal" : "Student Portal"}
-                    </Button>
-                  </Link>
                   <Button
                     variant="outline"
                     className="w-full text-rose-300 hover:text-rose-200 border-rose-800/50 hover:bg-rose-950/40"

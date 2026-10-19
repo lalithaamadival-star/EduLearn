@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   Layers,
-  ArrowRight
+  ArrowRight,
+  HelpCircle
 } from 'lucide-react';
 
 export function StudentLayout() {
@@ -38,7 +39,8 @@ export function StudentLayout() {
     { to: '/student/ai-tutor', label: 'AI Tutor', icon: Sparkles },
     { to: '/student/progress', label: 'Progress & Mastery', icon: TrendingUp },
     { to: '/student/accessibility-center', label: 'Accessibility Center', icon: Sliders },
-    { to: '/student/profile', label: 'Profile', icon: User }
+    { to: '/student/profile', label: 'Profile', icon: User },
+    { to: '/contact', label: 'Support & Contact', icon: HelpCircle }
   ];
 
   // Update orientation state on route change
@@ -71,7 +73,7 @@ export function StudentLayout() {
         >
           {/* Header */}
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2" aria-label="AccessEd Home">
+            <Link to="/student" className="flex items-center gap-2" aria-label="AccessEd Student Portal">
               <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
                 <SymbolIcon name="accessibility" className="w-4 h-4 text-indigo-400" />
               </div>

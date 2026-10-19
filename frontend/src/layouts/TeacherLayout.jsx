@@ -35,7 +35,8 @@ export function TeacherLayout() {
     { to: '/teacher/assignments', label: 'Assignments & Submissions', icon: FileCode },
     { to: '/teacher/accessibility-preview', label: 'Accessibility Previewer', icon: Eye },
     { to: '/teacher/ai-assistant', label: 'Teacher AI Co-pilot', icon: Sparkles },
-    { to: '/teacher/analytics', label: 'Pedagogical Analytics', icon: BarChart3 }
+    { to: '/teacher/analytics', label: 'Pedagogical Analytics', icon: BarChart3 },
+    { to: '/contact', label: 'Support & Contact', icon: HelpCircle }
   ];
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export function TeacherLayout() {
         >
           {/* Header */}
           <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
-            <Link to="/" className="flex items-center gap-2.5">
+            <Link to="/teacher" className="flex items-center gap-2.5" aria-label="AccessEd Teacher Suite">
               <div className="w-8 h-8 rounded-md bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
                 <SymbolIcon name="learning" className="w-4 h-4 text-amber-400" />
               </div>
