@@ -3,8 +3,10 @@ import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { Sparkles, Cpu, Layers, ShieldCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../../features/auth/AuthContext';
 
 export function AIPage() {
+  const { isTeacher, isStudent } = useAuth();
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-20">
       <div className="text-center max-w-3xl mx-auto space-y-4">
@@ -53,11 +55,25 @@ export function AIPage() {
             AI-generated educational content must <strong>NEVER</strong> automatically become published student coursework. Every generated outline, quiz question, and document extraction enters a mandatory educator review gate before publishing.
           </p>
         </div>
-        <Link to="/teacher/documents">
-          <Button variant="accent" size="sm">
-            Inspect Review Pipeline
-          </Button>
-        </Link>
+        {isTeacher ? (
+          <Link to="/teacher/documents">
+            <Button variant="accent" size="sm">
+              Inspect Review Pipeline
+            </Button>
+          </Link>
+        ) : isStudent ? (
+          <Link to="/student/ai-tutor">
+            <Button variant="primary" size="sm">
+              Consult Contextual AI Tutor
+            </Button>
+          </Link>
+        ) : (
+          <Link to="/signin">
+            <Button variant="accent" size="sm">
+              Sign In to Platform
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -4,10 +4,10 @@ import { OrientationBar } from '../features/accessibility/OrientationBar';
 import { SymbolIcon } from '../components/ui/SymbolIcon';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../features/auth/AuthContext';
-import { Menu, X, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Menu, X, ArrowRight, ShieldCheck, CheckCircle2, LogOut } from 'lucide-react';
 
 export function PublicLayout() {
-  const { user, isTeacher, isStudent } = useAuth();
+  const { user, isTeacher, isStudent, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
@@ -74,12 +74,28 @@ export function PublicLayout() {
           {/* Auth CTA Controls */}
           <div className="hidden sm:flex items-center gap-3">
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
+                  <span className={`w-2 h-2 rounded-full ${isTeacher ? 'bg-amber-400' : 'bg-indigo-400'}`} />
+                  <span className="font-semibold text-slate-200 truncate max-w-[140px]">{user.full_name}</span>
+                  <span className={`text-3xs uppercase font-mono px-1.5 py-0.5 rounded ${isTeacher ? 'bg-amber-950 text-amber-300 border border-amber-800/60' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/60'}`}>
+                    {isTeacher ? 'Teacher' : 'Student'}
+                  </span>
+                </div>
                 <Link to={isTeacher ? "/teacher" : "/student"}>
                   <Button variant="primary" size="sm">
                     Enter {isTeacher ? "Teacher Portal" : "Student Portal"}
                   </Button>
                 </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={logout}
+                  className="text-rose-300 hover:text-rose-200 hover:bg-rose-950/40"
+                  icon={LogOut}
+                >
+                  Sign Out
+                </Button>
               </div>
             ) : (
               <>
@@ -124,12 +140,44 @@ export function PublicLayout() {
               </Link>
             ))}
             <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
-              <Link to="/signin" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="secondary" className="w-full">Sign In</Button>
-              </Link>
-              <Link to="/get-started" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="primary" className="w-full">Get Started</Button>
-              </Link>
+              {user ? (
+                <>
+                  <div className="px-2 py-1 text-xs text-slate-300 flex items-center justify-between">
+                    <span>Active: <strong className="text-white">{user.full_name}</strong></span>
+                    <span className={`text-3xs uppercase font-mono px-1.5 py-0.5 rounded ${isTeacher ? 'bg-amber-950 text-amber-300' : 'bg-indigo-950 text-indigo-300'}`}>
+                      {isTeacher ? 'Teacher' : 'Student'}
+                    </span>
+                  </div>
+                  <Link
+                    to={isTeacher ? "/teacher" : "/student"}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button variant="primary" className="w-full">
+                      Enter {isTeacher ? "Teacher Portal" : "Student Portal"}
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="w-full text-rose-300 hover:text-rose-200 border-rose-800/50 hover:bg-rose-950/40"
+                    icon={LogOut}
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/signin" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="secondary" className="w-full">Sign In</Button>
+                  </Link>
+                  <Link to="/get-started" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="primary" className="w-full">Get Started</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -169,12 +217,51 @@ export function PublicLayout() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-slate-200 text-xs uppercase tracking-wider mb-3">Portals</h3>
+            <h3 className="font-semibold text-slate-200 text-xs uppercase tracking-wider mb-3">
+              {isTeacher ? "Teacher Suite" : isStudent ? "Student Workspace" : "Portals"}
+            </h3>
             <ul className="space-y-2 text-xs">
-              <li><Link to="/student" className="hover:text-white">Student Learning Portal</Link></li>
-              <li><Link to="/teacher" className="hover:text-white">Teacher Operational Suite</Link></li>
-              <li><Link to="/student/accessibility-center" className="hover:text-white">Accessibility Center</Link></li>
-              <li><Link to="/accessibility-statement" className="hover:text-white">Accessibility Statement</Link></li>
+              {isStudent ? (
+                <>
+                  <li><Link to="/student" className="hover:text-white font-medium text-indigo-300">Student Learning Portal</Link></li>
+                  <li><Link to="/student/courses" className="hover:text-white">My Enrolled Courses</Link></li>
+                  <li><Link to="/student/accessibility-center" className="hover:text-white">Accessibility Center</Link></li>
+                  <li><Link to="/student/ai-tutor" className="hover:text-white">AI Tutor Session</Link></li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="text-rose-400 hover:text-rose-300 text-left transition-colors flex items-center gap-1.5"
+                    >
+                      <LogOut className="w-3 h-3" />
+                      <span>Sign Out</span>
+                    </button>
+                  </li>
+                </>
+              ) : isTeacher ? (
+                <>
+                  <li><Link to="/teacher" className="hover:text-white font-medium text-amber-300">Teacher Operational Suite</Link></li>
+                  <li><Link to="/teacher/courses" className="hover:text-white">Course Management</Link></li>
+                  <li><Link to="/teacher/classes" className="hover:text-white">Class Operations</Link></li>
+                  <li><Link to="/teacher/documents" className="hover:text-white">Document OCR Pipeline</Link></li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="text-rose-400 hover:text-rose-300 text-left transition-colors flex items-center gap-1.5"
+                    >
+                      <LogOut className="w-3 h-3" />
+                      <span>Sign Out</span>
+                    </button>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li><Link to="/signin" className="hover:text-white">Student Learning Portal</Link></li>
+                  <li><Link to="/signin" className="hover:text-white">Teacher Operational Suite</Link></li>
+                  <li><Link to="/accessibility-statement" className="hover:text-white">Accessibility Statement</Link></li>
+                </>
+              )}
             </ul>
           </div>
 

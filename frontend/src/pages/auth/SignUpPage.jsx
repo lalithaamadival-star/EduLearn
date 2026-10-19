@@ -33,8 +33,8 @@ export function SignUpPage() {
         organization: organization || (role === 'TEACHER' ? 'Department of Inclusive Computing' : 'AccessEd Learning Cohort')
       });
 
-      announce(`Account successfully registered for ${user.full_name}. Entering ${user.role.toLowerCase()} portal.`, 'polite');
-      if (user.role === 'TEACHER') {
+      announce(`Account successfully registered for ${user.full_name}. Entering ${(user.role || '').toLowerCase()} portal.`, 'polite');
+      if (user.role?.toUpperCase() === 'TEACHER') {
         navigate('/teacher');
       } else {
         navigate('/student');

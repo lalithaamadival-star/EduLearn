@@ -70,8 +70,8 @@ export function AuthProvider({ children }) {
         token,
         loading,
         isAuthenticated: !!user && !!token,
-        isTeacher: user?.role === 'TEACHER',
-        isStudent: user?.role === 'STUDENT',
+        isTeacher: !!user && user?.role?.toUpperCase() === 'TEACHER',
+        isStudent: !!user && user?.role?.toUpperCase() === 'STUDENT',
         login,
         signup,
         logout

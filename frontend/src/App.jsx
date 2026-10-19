@@ -22,6 +22,7 @@ import { AccessibilityStatement } from './pages/public/AccessibilityStatement';
 import { PrivacyPage, TermsPage } from './pages/public/LegalPages';
 import { SignInPage } from './pages/auth/SignInPage';
 import { SignUpPage } from './pages/auth/SignUpPage';
+import { ProtectedRoute, PublicAuthRoute } from './components/common/ProtectedRoute';
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -67,16 +68,37 @@ export default function App() {
                   <Route path="accessibility-statement" element={<AccessibilityStatement />} />
                   <Route path="privacy" element={<PrivacyPage />} />
                   <Route path="terms" element={<TermsPage />} />
-                  <Route path="signin" element={<SignInPage />} />
-                  <Route path="get-started" element={<SignUpPage />} />
+                  <Route
+                    path="signin"
+                    element={
+                      <PublicAuthRoute>
+                        <SignInPage />
+                      </PublicAuthRoute>
+                    }
+                  />
+                  <Route
+                    path="get-started"
+                    element={
+                      <PublicAuthRoute>
+                        <SignUpPage />
+                      </PublicAuthRoute>
+                    }
+                  />
 
                   {/* Standalone Lesson Reader accessible with full orientation toolbar */}
                   <Route path="courses/:courseSlug/lessons/:lessonSlug" element={<LessonReaderPage />} />
                   <Route path="quizzes/:quizId" element={<QuizPage />} />
                 </Route>
 
-                {/* Student Portal */}
-                <Route path="/student" element={<StudentLayout />}>
+                {/* Student Portal (Strictly guarded for STUDENTS only) */}
+                <Route
+                  path="/student"
+                  element={
+                    <ProtectedRoute allowedRole="STUDENT">
+                      <StudentLayout />
+                    </ProtectedRoute>
+                  }
+                >
                   <Route index element={<StudentDashboard />} />
                   <Route path="courses" element={<CourseLibraryPage />} />
                   <Route path="explore" element={<CourseLibraryPage />} />
@@ -89,8 +111,15 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                 </Route>
 
-                {/* Teacher Portal */}
-                <Route path="/teacher" element={<TeacherLayout />}>
+                {/* Teacher Portal (Strictly guarded for TEACHERS only) */}
+                <Route
+                  path="/teacher"
+                  element={
+                    <ProtectedRoute allowedRole="TEACHER">
+                      <TeacherLayout />
+                    </ProtectedRoute>
+                  }
+                >
                   <Route index element={<TeacherDashboard />} />
                   <Route path="classes" element={<ClassesManagementPage />} />
                   <Route path="courses" element={<TeacherCoursesPage />} />

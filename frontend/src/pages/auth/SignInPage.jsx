@@ -24,8 +24,8 @@ export function SignInPage() {
 
     try {
       const user = await login(email, password, role);
-      announce(`Signed in successfully as ${user.full_name}. Entering ${user.role.toLowerCase()} portal.`, 'polite');
-      if (user.role === 'TEACHER') {
+      announce(`Signed in successfully as ${user.full_name}. Entering ${(user.role || '').toLowerCase()} portal.`, 'polite');
+      if (user.role?.toUpperCase() === 'TEACHER') {
         navigate('/teacher');
       } else {
         navigate('/student');

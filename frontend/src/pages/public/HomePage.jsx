@@ -18,10 +18,13 @@ import {
   Cpu,
   Layers,
   Zap,
-  Globe
+  Globe,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '../../features/auth/AuthContext';
 
 export function HomePage() {
+  const { user, isStudent, isTeacher, logout } = useAuth();
   const [activeLessonMode, setActiveLessonMode] = useState('normal');
   const [audioVoiceLang, setAudioVoiceLang] = useState('en');
 
@@ -69,16 +72,46 @@ export function HomePage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Link to="/student/courses">
-              <Button size="lg" variant="primary" icon={ArrowRight}>
-                Explore the Platform
-              </Button>
-            </Link>
-            <Link to="/get-started">
-              <Button size="lg" variant="outline">
-                Get Started Free
-              </Button>
-            </Link>
+            {isStudent ? (
+              <>
+                <Link to="/student">
+                  <Button size="lg" variant="primary" icon={ArrowRight}>
+                    Go to Student Dashboard
+                  </Button>
+                </Link>
+                <Link to="/student/courses">
+                  <Button size="lg" variant="outline" icon={BookOpen}>
+                    Browse My Courses
+                  </Button>
+                </Link>
+              </>
+            ) : isTeacher ? (
+              <>
+                <Link to="/teacher">
+                  <Button size="lg" variant="primary" icon={ArrowRight}>
+                    Go to Teacher Studio
+                  </Button>
+                </Link>
+                <Link to="/teacher/courses">
+                  <Button size="lg" variant="outline" icon={BookOpen}>
+                    Manage Curriculum
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button size="lg" variant="primary" icon={ArrowRight}>
+                    Explore the Platform
+                  </Button>
+                </Link>
+                <Link to="/get-started">
+                  <Button size="lg" variant="outline">
+                    Get Started Free
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -430,22 +463,68 @@ export function HomePage() {
       <section aria-label="Get Started CTA" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="p-10 rounded-3xl bg-gradient-to-b from-indigo-950/60 to-slate-900 border border-indigo-800/50 space-y-6 hero-focus-card">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
-            Experience the Future of Inclusive Learning
+            {isStudent
+              ? `Welcome back, ${user?.full_name || 'Student'}!`
+              : isTeacher
+              ? `Welcome back, ${user?.full_name || 'Educator'}!`
+              : 'Experience the Future of Inclusive Learning'}
           </h2>
           <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto">
-            Test the student experience, inspect teacher curriculum tools, or explore the flagship Lesson Reader now.
+            {isStudent
+              ? 'Continue your personalized learning journey, consult your AI tutor, or track your curriculum progress.'
+              : isTeacher
+              ? 'Manage your student cohorts, review OCR document pipelines, or audit accessibility previews.'
+              : 'Test the student experience, inspect teacher curriculum tools, or explore the flagship Lesson Reader now.'}
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/student">
-              <Button size="lg" variant="primary">
-                Launch Student Experience
-              </Button>
-            </Link>
-            <Link to="/teacher">
-              <Button size="lg" variant="secondary">
-                Launch Teacher Console
-              </Button>
-            </Link>
+            {isStudent ? (
+              <>
+                <Link to="/student">
+                  <Button size="lg" variant="primary" icon={ArrowRight}>
+                    Launch Student Experience
+                  </Button>
+                </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  icon={LogOut}
+                  onClick={logout}
+                  className="text-rose-300 hover:text-rose-200 border-rose-800/50 hover:bg-rose-950/40"
+                >
+                  Sign Out of Student Account
+                </Button>
+              </>
+            ) : isTeacher ? (
+              <>
+                <Link to="/teacher">
+                  <Button size="lg" variant="primary" icon={ArrowRight}>
+                    Launch Teacher Console
+                  </Button>
+                </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  icon={LogOut}
+                  onClick={logout}
+                  className="text-rose-300 hover:text-rose-200 border-rose-800/50 hover:bg-rose-950/40"
+                >
+                  Sign Out of Teacher Account
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button size="lg" variant="primary">
+                    Launch Student Experience
+                  </Button>
+                </Link>
+                <Link to="/signin">
+                  <Button size="lg" variant="secondary">
+                    Launch Teacher Console
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
