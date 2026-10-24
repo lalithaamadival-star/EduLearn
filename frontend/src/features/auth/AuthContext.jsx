@@ -36,6 +36,17 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await api.login({ email, password, role_hint: roleHint });
+      const userRole = (res.user?.role || '').toUpperCase();
+      const expectedRole = (roleHint || '').toUpperCase();
+
+      if (expectedRole && userRole !== expectedRole) {
+        if (userRole === 'TEACHER') {
+          throw new Error("This account is registered as an Educator/Teacher. Please select 'Teacher Curriculum Suite' from the dropdown to sign in.");
+        } else {
+          throw new Error("This account is registered as a Student. Please select 'Student Learning Workspace' from the dropdown to sign in.");
+        }
+      }
+
       setUser(res.user);
       setToken(res.access_token);
       return res.user;

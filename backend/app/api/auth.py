@@ -73,6 +73,22 @@ async def login(req: LoginRequest):
             detail="Incorrect password. Please try again."
         )
 
+    # 3. Verify workspace portal matches account role
+    if req.role_hint:
+        expected_role = req.role_hint.strip().upper()
+        actual_role = (target_user.get("role") or "").strip().upper()
+        if actual_role != expected_role:
+            if actual_role == "TEACHER":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account is registered as an Educator/Teacher. Please select 'Teacher Curriculum Suite' from the dropdown to sign in."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account is registered as a Student. Please select 'Student Learning Workspace' from the dropdown to sign in."
+                )
+
     # Update memory store
     data_store.profiles[target_user["id"]] = target_user
 

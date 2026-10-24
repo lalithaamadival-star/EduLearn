@@ -7,7 +7,7 @@ import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Lock, Mail, ArrowRight, LogIn } from 'lucide-react';
 
 export function SignInPage() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const { announce } = useAuditoryOrientation();
   const navigate = useNavigate();
 
@@ -24,8 +24,20 @@ export function SignInPage() {
 
     try {
       const user = await login(email, password, role);
-      announce(`Signed in successfully as ${user.full_name}. Entering ${(user.role || '').toLowerCase()} portal.`, 'polite');
-      if (user.role?.toUpperCase() === 'TEACHER') {
+      const actualRole = (user?.role || '').toUpperCase();
+      const selectedRole = role.toUpperCase();
+
+      if (actualRole !== selectedRole) {
+        if (logout) logout();
+        if (actualRole === 'TEACHER') {
+          throw new Error("This account is registered as an Educator/Teacher. Please select 'Teacher Curriculum Suite' from the dropdown to sign in.");
+        } else {
+          throw new Error("This account is registered as a Student. Please select 'Student Learning Workspace' from the dropdown to sign in.");
+        }
+      }
+
+      announce(`Signed in successfully as ${user.full_name}. Entering ${actualRole.toLowerCase()} portal.`, 'polite');
+      if (actualRole === 'TEACHER') {
         navigate('/teacher');
       } else {
         navigate('/student');
