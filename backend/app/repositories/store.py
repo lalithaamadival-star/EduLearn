@@ -302,35 +302,61 @@ class LiveSupabaseDataStore:
         job_id = job_dict["job_id"]
         self.document_jobs[job_id] = job_dict
 
+        accessible_out = job_dict.get("accessible_output") or {}
+        if isinstance(accessible_out, dict) and job_dict.get("extracted_markdown"):
+            accessible_out["markdown_content"] = job_dict.get("extracted_markdown")
+
         try:
             conn = self._get_connection()
             conn.autocommit = True
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO public.document_jobs (
-                    job_id, file_name, status, error_message, extracted_structure, accessible_output, uploaded_at, updated_at
+                    job_id, teacher_id, file_name, status, error_message, extracted_structure, accessible_output, is_shared_with_students, uploaded_at, updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, NOW(), NOW()
+                    %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
                 )
                 ON CONFLICT (job_id) DO UPDATE SET
+                    teacher_id = EXCLUDED.teacher_id,
                     status = EXCLUDED.status,
                     error_message = EXCLUDED.error_message,
                     extracted_structure = EXCLUDED.extracted_structure,
                     accessible_output = EXCLUDED.accessible_output,
+                    is_shared_with_students = EXCLUDED.is_shared_with_students,
                     updated_at = NOW();
             """, (
                 job_id,
+                job_dict.get("teacher_id"),
                 job_dict.get("file_name", "document"),
                 job_dict.get("status", "PROCESSING"),
                 job_dict.get("error_message"),
                 json.dumps(job_dict.get("extracted_structure") or {}),
-                json.dumps(job_dict.get("accessible_output") or {})
+                json.dumps(accessible_out),
+                job_dict.get("is_shared_with_students", True)
             ))
             cur.close()
             conn.close()
             logger.info(f"Persisted document job to Supabase: {job_id}")
         except Exception as e:
             logger.error(f"Failed to persist document job to Supabase: {e}")
+
+    def update_student_selected_teacher(self, student_id: str, teacher_id: str):
+        if student_id in self.profiles:
+            self.profiles[student_id]["selected_teacher_id"] = teacher_id
+        try:
+            conn = self._get_connection()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE public.profiles
+                SET selected_teacher_id = %s, updated_at = NOW()
+                WHERE id = %s;
+            """, (teacher_id, student_id))
+            cur.close()
+            conn.close()
+            logger.info(f"Updated student {student_id} selected educator to {teacher_id}")
+        except Exception as e:
+            logger.error(f"Failed to persist selected teacher to Supabase: {e}")
 
     def save_quiz(self, quiz_dict: Dict[str, Any]) -> Dict[str, Any]:
         qid = str(quiz_dict.get("id") or uuid.uuid4())

@@ -182,3 +182,20 @@ async def create_class(req: ClassCreateRequest, user: Dict[str, Any] = Depends(r
 async def get_all_registered_students(user: Dict[str, Any] = Depends(require_role("TEACHER"))):
     """Direct query endpoint for educators to inspect all registered students."""
     return get_real_students()
+
+@router.get("/list")
+async def list_available_educators():
+    """Public/authenticated endpoint returning all registered educators for selection and onboarding."""
+    data_store.sync_profiles()
+    teachers = [
+        {
+            "id": str(p["id"]),
+            "full_name": p["full_name"],
+            "email": p["email"],
+            "organization": p.get("organization") or "Department of Computer Science & Engineering",
+            "courses_count": len([c for c in data_store.courses.values() if str(c.get("teacher_id")) == str(p["id"])])
+        }
+        for p in data_store.profiles.values()
+        if (p.get("role") or "").strip().upper() == "TEACHER"
+    ]
+    return teachers

@@ -30,8 +30,13 @@ def enrich_course_with_teacher(course: Dict[str, Any]) -> Dict[str, Any]:
     return c
 
 @router.get("")
-async def list_courses(user: Dict[str, Any] = Depends(get_current_user)):
+async def list_courses(
+    teacher_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
     courses = [enrich_course_with_teacher(c) for c in data_store.courses.values()]
+    if teacher_id:
+        courses = [c for c in courses if str(c.get("teacher_id")) == str(teacher_id)]
     return courses
 
 @router.get("/{course_id}")

@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from app.models.schemas import DocumentProcessingJobResponse, DocumentReviewUpdateRequest
 from app.services.ocr.gemini_service import gemini_document_service
 from app.repositories.store import data_store
-from app.core.security import require_role
+from app.core.security import require_role, get_current_user
 from app.core.logging import logger
 
 router = APIRouter(prefix="/api/documents", tags=["Document Intelligence & OCR"])
@@ -26,10 +26,12 @@ async def upload_document(
     text_preview = content_bytes[:4000].decode("utf-8", errors="ignore")
 
     now_iso = datetime.now(timezone.utc).isoformat()
+    teacher_id = str(user["id"])
 
     # Create job in data_store
     data_store.document_jobs[job_id] = {
         "job_id": job_id,
+        "teacher_id": teacher_id,
         "file_name": file.filename,
         "status": "PROCESSING",
         "error_message": None,
@@ -38,7 +40,8 @@ async def upload_document(
         "course_id": course_id,
         "extracted_structure": None,
         "extracted_markdown": None,
-        "teacher_notes": None
+        "teacher_notes": None,
+        "is_shared_with_students": True
     }
 
     # Trigger extraction through Gemini
@@ -67,17 +70,54 @@ async def upload_document(
     return data_store.document_jobs[job_id]
 
 @router.get("")
-async def list_documents(user: Dict[str, Any] = Depends(require_role("TEACHER"))):
-    return list(data_store.document_jobs.values())
+async def list_documents(
+    teacher_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Returns study documents and OCR materials.
+    - Teachers see their uploaded materials.
+    - Students see study documents uploaded by their active selected educator.
+    """
+    data_store.sync_profiles()
+    role = (user.get("role") or "").strip().upper()
+    docs = list(data_store.document_jobs.values())
+
+    enriched_docs = []
+    for d in docs:
+        doc_copy = dict(d)
+        t_id = str(doc_copy.get("teacher_id") or "")
+        teacher = data_store.profiles.get(t_id)
+        doc_copy["teacher_name"] = teacher["full_name"] if teacher else "Faculty Educator"
+        doc_copy["teacher_email"] = teacher.get("email") if teacher else None
+        doc_copy["teacher_organization"] = teacher.get("organization") if teacher else "Department of Computer Science & Engineering"
+        enriched_docs.append(doc_copy)
+
+    if role == "TEACHER":
+        t_docs = [d for d in enriched_docs if str(d.get("teacher_id")) == str(user["id"])]
+        return t_docs if t_docs else enriched_docs
+    else:
+        # Student viewing study documents
+        current_profile = data_store.profiles.get(str(user["id"]), user)
+        active_t_id = teacher_id or current_profile.get("selected_teacher_id")
+        if active_t_id:
+            filtered = [d for d in enriched_docs if str(d.get("teacher_id")) == str(active_t_id) and d.get("is_shared_with_students", True)]
+            return filtered
+        return [d for d in enriched_docs if d.get("is_shared_with_students", True)]
 
 @router.get("/{job_id}")
-async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(require_role("TEACHER"))):
+async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     if job_id not in data_store.document_jobs:
         raise HTTPException(status_code=404, detail="Document processing job not found")
-    return data_store.document_jobs[job_id]
+    job = dict(data_store.document_jobs[job_id])
+    t_id = str(job.get("teacher_id") or "")
+    teacher = data_store.profiles.get(t_id)
+    job["teacher_name"] = teacher["full_name"] if teacher else "Faculty Educator"
+    job["teacher_email"] = teacher.get("email") if teacher else None
+    return job
 
 @router.get("/{job_id}/status")
-async def get_job_status(job_id: str, user: Dict[str, Any] = Depends(require_role("TEACHER"))):
+async def get_job_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     if job_id not in data_store.document_jobs:
         raise HTTPException(status_code=404, detail="Document processing job not found")
     job = data_store.document_jobs[job_id]
@@ -121,15 +161,46 @@ async def publish_document_as_lesson(
         raise HTTPException(status_code=404, detail="Document processing job not found")
     
     job = data_store.document_jobs[job_id]
-    lesson_id = f"e{uuid.uuid4().hex[:12]}"
+    lesson_id = str(uuid.uuid4())
     title = job["extracted_structure"].get("title", job["file_name"]) if job.get("extracted_structure") else job["file_name"]
+    teacher_id = str(user["id"])
+
+    target_course_id = job.get("course_id")
+    target_module_id = None
+
+    if target_course_id and str(target_course_id) in data_store.courses:
+        for m in data_store.modules.values():
+            if str(m.get("course_id")) == str(target_course_id):
+                target_module_id = str(m["id"])
+                break
+
+    if not target_course_id:
+        for c in data_store.courses.values():
+            if str(c.get("teacher_id")) == teacher_id:
+                target_course_id = str(c["id"])
+                for m in data_store.modules.values():
+                    if str(m.get("course_id")) == target_course_id:
+                        target_module_id = str(m["id"])
+                        break
+                break
+
+    if not target_course_id and data_store.courses:
+        first_c = next(iter(data_store.courses.values()))
+        target_course_id = str(first_c["id"])
+        for m in data_store.modules.values():
+            if str(m.get("course_id")) == target_course_id:
+                target_module_id = str(m["id"])
+                break
+
+    if not target_module_id and data_store.modules:
+        target_module_id = next(iter(data_store.modules.keys()))
 
     new_lesson = {
         "id": lesson_id,
-        "module_id": "d0000000-0000-0000-0000-000000000001",
-        "course_id": "c0000000-0000-0000-0000-000000000001",
+        "module_id": target_module_id,
+        "course_id": target_course_id,
         "title": title,
-        "slug": title.lower().replace(" ", "-")[:40],
+        "slug": f"doc-{uuid.uuid4().hex[:6]}-{title.lower().replace(' ', '-')[:30]}",
         "content_raw": job.get("extracted_markdown", "# New Lesson"),
         "content_simplified": f"# {title} (Simplified)\n\nThis lesson was converted from reviewed document {job['file_name']}.",
         "summary": f"Imported curriculum material based on {job['file_name']}.",

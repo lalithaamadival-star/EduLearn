@@ -19,6 +19,7 @@ class SignupRequest(BaseModel):
     full_name: str
     role: str = "STUDENT"
     organization: Optional[str] = "AccessEd Learning Community"
+    teacher_id: Optional[str] = None
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -38,7 +39,7 @@ async def login(req: LoginRequest):
         conn = data_store._get_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT id, email, full_name, role, organization, password_hash
+            SELECT id, email, full_name, role, organization, password_hash, selected_teacher_id
             FROM public.profiles
             WHERE LOWER(email) = %s;
         """, (email_clean,))
@@ -52,7 +53,8 @@ async def login(req: LoginRequest):
                 "email": row[1],
                 "full_name": row[2],
                 "role": row[3],
-                "organization": row[4] or "AccessEd Learning Community"
+                "organization": row[4] or "AccessEd Learning Community",
+                "selected_teacher_id": str(row[6]) if row[6] else None
             }
             stored_hash = row[5]
     except Exception as e:
@@ -100,12 +102,15 @@ async def signup(req: SignupRequest):
     user_id = str(uuid.uuid4())
     org = req.organization or ("Department of Computing" if role == "TEACHER" else "AccessEd Learning Cohort")
 
+    selected_teacher_id = req.teacher_id if role == "STUDENT" and req.teacher_id else None
+
     user = {
         "id": user_id,
         "email": email_clean,
         "full_name": req.full_name.strip(),
         "role": role,
-        "organization": org
+        "organization": org,
+        "selected_teacher_id": selected_teacher_id
     }
 
     try:
@@ -125,9 +130,9 @@ async def signup(req: SignupRequest):
 
         # Insert new profile
         cur.execute("""
-            INSERT INTO public.profiles (id, email, full_name, role, organization, password_hash, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW());
-        """, (user_id, email_clean, req.full_name.strip(), role, org, pw_hash))
+            INSERT INTO public.profiles (id, email, full_name, role, organization, password_hash, selected_teacher_id, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW());
+        """, (user_id, email_clean, req.full_name.strip(), role, org, pw_hash, selected_teacher_id))
 
         # Insert default accessibility preferences
         cur.execute("""
@@ -140,7 +145,7 @@ async def signup(req: SignupRequest):
         conn.close()
 
         data_store.profiles[user_id] = user
-        logger.info(f"Registered real account in Supabase: {email_clean} ({role})")
+        logger.info(f"Registered real account in Supabase: {email_clean} ({role}, educator={selected_teacher_id})")
     except HTTPException:
         raise
     except Exception as e:
