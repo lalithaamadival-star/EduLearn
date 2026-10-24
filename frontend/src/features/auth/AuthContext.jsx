@@ -44,15 +44,22 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signup = async ({ email, password, full_name, role = 'STUDENT', organization = '' }) => {
+  const signup = async ({ email, password, full_name, role = 'STUDENT', organization = '', teacher_id = null }) => {
     setLoading(true);
     try {
-      const res = await api.signup({ email, password, full_name, role, organization });
+      const res = await api.signup({ email, password, full_name, role, organization, teacher_id });
       setUser(res.user);
       setToken(res.access_token);
       return res.user;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const setSelectedTeacher = (teacherId) => {
+    if (user) {
+      const updated = { ...user, selected_teacher_id: teacherId };
+      setUser(updated);
     }
   };
 
@@ -74,7 +81,8 @@ export function AuthProvider({ children }) {
         isStudent: !!user && user?.role?.toUpperCase() === 'STUDENT',
         login,
         signup,
-        logout
+        logout,
+        setSelectedTeacher
       }}
     >
       {children}

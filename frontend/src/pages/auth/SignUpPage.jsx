@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOrientationContext';
+import { api } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
-import { Mail, Lock, User, ArrowRight, Building } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Building, GraduationCap } from 'lucide-react';
 
 export function SignUpPage() {
   const { signup } = useAuth();
@@ -16,8 +17,28 @@ export function SignUpPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('STUDENT');
   const [organization, setOrganization] = useState('');
+  const [teachers, setTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoadingTeachers(true);
+    api.getTeachers()
+      .then(list => {
+        const arr = Array.isArray(list) ? list : [];
+        setTeachers(arr);
+        if (arr.length > 0) {
+          // Keep blank or first if user wants to select
+          setSelectedTeacherId(arr[0].id);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load educators list:", err);
+      })
+      .finally(() => setLoadingTeachers(false));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +51,8 @@ export function SignUpPage() {
         password,
         full_name: fullName,
         role,
-        organization: organization || (role === 'TEACHER' ? 'Department of Inclusive Computing' : 'AccessEd Learning Cohort')
+        organization: organization || (role === 'TEACHER' ? 'Department of Inclusive Computing' : 'AccessEd Learning Cohort'),
+        teacher_id: role === 'STUDENT' ? (selectedTeacherId || null) : null
       });
 
       announce(`Account successfully registered for ${user.full_name}. Entering ${(user.role || '').toLowerCase()} portal.`, 'polite');
@@ -136,6 +158,39 @@ export function SignUpPage() {
             <option value="TEACHER">Educator / Curriculum Creator</option>
           </select>
         </div>
+
+        {role === 'STUDENT' && (
+          <div className="space-y-1.5 p-3 rounded-xl bg-slate-950/80 border border-indigo-900/40">
+            <label htmlFor="signup-teacher" className="flex items-center justify-between text-xs font-semibold text-slate-200">
+              <span className="flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4 text-indigo-400" />
+                Select Your Assigned Educator
+              </span>
+              <span className="text-3xs text-indigo-400 font-normal">Switchable anytime</span>
+            </label>
+            <div className="relative">
+              <select
+                id="signup-teacher"
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-900 border border-slate-700 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                {teachers.length === 0 ? (
+                  <option value="">{loadingTeachers ? 'Loading available educators...' : 'No educators found'}</option>
+                ) : (
+                  teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name} ({t.organization || 'Faculty'} • {t.courses_count || 0} courses)
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <p className="text-3xs text-slate-400 leading-tight">
+              You will automatically see this educator's uploaded study documents, lectures, and assignments in your student workspace.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label htmlFor="signup-org" className="block text-xs font-semibold text-slate-200">
