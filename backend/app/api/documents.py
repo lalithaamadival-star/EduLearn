@@ -91,6 +91,20 @@ async def list_documents(
         doc_copy["teacher_name"] = teacher["full_name"] if teacher else "Faculty Educator"
         doc_copy["teacher_email"] = teacher.get("email") if teacher else None
         doc_copy["teacher_organization"] = teacher.get("organization") if teacher else "Department of Computer Science & Engineering"
+        struct = doc_copy.get("extracted_structure") or {}
+        acc_out = doc_copy.get("accessible_output") or {}
+        if not doc_copy.get("title"):
+            doc_copy["title"] = struct.get("title") or doc_copy.get("file_name", "Study Document")
+        if not doc_copy.get("extracted_markdown") and isinstance(acc_out, dict):
+            doc_copy["extracted_markdown"] = acc_out.get("markdown_content") or ""
+        if not doc_copy.get("markdown_preview"):
+            md = doc_copy.get("extracted_markdown") or ""
+            doc_copy["markdown_preview"] = (md[:280] + "...") if len(md) > 280 else md
+        if not doc_copy.get("concepts_detected"):
+            raw_c = struct.get("key_concepts") or []
+            doc_copy["concepts_detected"] = [
+                c.get("term", "") if isinstance(c, dict) else str(c) for c in raw_c if c
+            ]
         enriched_docs.append(doc_copy)
 
     if role == "TEACHER":
@@ -114,6 +128,20 @@ async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_curre
     teacher = data_store.profiles.get(t_id)
     job["teacher_name"] = teacher["full_name"] if teacher else "Faculty Educator"
     job["teacher_email"] = teacher.get("email") if teacher else None
+    struct = job.get("extracted_structure") or {}
+    acc_out = job.get("accessible_output") or {}
+    if not job.get("title"):
+        job["title"] = struct.get("title") or job.get("file_name", "Study Document")
+    if not job.get("extracted_markdown") and isinstance(acc_out, dict):
+        job["extracted_markdown"] = acc_out.get("markdown_content") or ""
+    if not job.get("markdown_preview"):
+        md = job.get("extracted_markdown") or ""
+        job["markdown_preview"] = (md[:280] + "...") if len(md) > 280 else md
+    if not job.get("concepts_detected"):
+        raw_c = struct.get("key_concepts") or []
+        job["concepts_detected"] = [
+            c.get("term", "") if isinstance(c, dict) else str(c) for c in raw_c if c
+        ]
     return job
 
 @router.get("/{job_id}/status")

@@ -95,7 +95,26 @@ class LiveSupabaseDataStore:
 
             # 9. Document Jobs
             cur.execute("SELECT * FROM public.document_jobs ORDER BY uploaded_at DESC;")
-            self.document_jobs = {str(r['job_id']): self._serialize_row(r) for r in cur.fetchall()}
+            raw_jobs = [self._serialize_row(r) for r in cur.fetchall()]
+            self.document_jobs = {}
+            for job in raw_jobs:
+                jid = str(job['job_id'])
+                struct = job.get('extracted_structure') or {}
+                acc_out = job.get('accessible_output') or {}
+                if not job.get('title'):
+                    job['title'] = struct.get('title') or job.get('file_name', 'Study Document')
+                if not job.get('extracted_markdown') and isinstance(acc_out, dict):
+                    job['extracted_markdown'] = acc_out.get('markdown_content') or ''
+                if not job.get('markdown_preview'):
+                    md = job.get('extracted_markdown') or ''
+                    job['markdown_preview'] = (md[:280] + '...') if len(md) > 280 else md
+                if not job.get('concepts_detected'):
+                    raw_concepts = struct.get('key_concepts') or []
+                    job['concepts_detected'] = [
+                        c.get('term', '') if isinstance(c, dict) else str(c)
+                        for c in raw_concepts if c
+                    ]
+                self.document_jobs[jid] = job
 
             # 10. Learning Progress
             cur.execute("SELECT * FROM public.learning_progress;")
@@ -312,9 +331,9 @@ class LiveSupabaseDataStore:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO public.document_jobs (
-                    job_id, teacher_id, file_name, status, error_message, extracted_structure, accessible_output, is_shared_with_students, uploaded_at, updated_at
+                    job_id, teacher_id, file_name, status, error_message, extracted_structure, accessible_output, is_shared_with_students, teacher_notes, uploaded_at, updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
                 )
                 ON CONFLICT (job_id) DO UPDATE SET
                     teacher_id = EXCLUDED.teacher_id,
@@ -323,6 +342,7 @@ class LiveSupabaseDataStore:
                     extracted_structure = EXCLUDED.extracted_structure,
                     accessible_output = EXCLUDED.accessible_output,
                     is_shared_with_students = EXCLUDED.is_shared_with_students,
+                    teacher_notes = EXCLUDED.teacher_notes,
                     updated_at = NOW();
             """, (
                 job_id,
@@ -332,7 +352,8 @@ class LiveSupabaseDataStore:
                 job_dict.get("error_message"),
                 json.dumps(job_dict.get("extracted_structure") or {}),
                 json.dumps(accessible_out),
-                job_dict.get("is_shared_with_students", True)
+                job_dict.get("is_shared_with_students", True),
+                job_dict.get("teacher_notes")
             ))
             cur.close()
             conn.close()

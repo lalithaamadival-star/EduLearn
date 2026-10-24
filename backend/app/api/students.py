@@ -73,10 +73,25 @@ async def get_student_dashboard(
             if c.get("is_published", True) and str(c.get("teacher_id")) == t_id_str
         ]
         # Study documents uploaded by this teacher
-        study_documents = [
-            d for d in data_store.document_jobs.values()
-            if str(d.get("teacher_id")) == t_id_str and d.get("is_shared_with_students", True)
-        ]
+        study_documents = []
+        for d in data_store.document_jobs.values():
+            if str(d.get("teacher_id")) == t_id_str and d.get("is_shared_with_students", True):
+                d_copy = dict(d)
+                struct = d_copy.get("extracted_structure") or {}
+                acc_out = d_copy.get("accessible_output") or {}
+                if not d_copy.get("title"):
+                    d_copy["title"] = struct.get("title") or d_copy.get("file_name", "Study Document")
+                if not d_copy.get("extracted_markdown") and isinstance(acc_out, dict):
+                    d_copy["extracted_markdown"] = acc_out.get("markdown_content") or ""
+                if not d_copy.get("markdown_preview"):
+                    md = d_copy.get("extracted_markdown") or ""
+                    d_copy["markdown_preview"] = (md[:280] + "...") if len(md) > 280 else md
+                if not d_copy.get("concepts_detected"):
+                    raw_c = struct.get("key_concepts") or []
+                    d_copy["concepts_detected"] = [
+                        c.get("term", "") if isinstance(c, dict) else str(c) for c in raw_c if c
+                    ]
+                study_documents.append(d_copy)
     else:
         published_courses = []
         study_documents = []
