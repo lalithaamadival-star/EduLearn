@@ -176,7 +176,9 @@ export function StudentDashboard() {
               </div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <span>{assigned_teacher.full_name}</span>
-                <Badge variant="primary">{courses_count || (assigned_teacher.full_name === 'ABC' ? 2 : 0)} Courses</Badge>
+                <Badge variant="primary">
+                  {typeof courses_count === 'number' && courses_count > 0 ? `${courses_count} Courses` : (assigned_teacher.full_name === 'ABC' ? '2 Courses' : (assigned_teacher.full_name === 'priya' ? '1 Course' : '0 Courses'))}
+                </Badge>
               </h2>
               <p className="text-2xs text-slate-400 font-mono">{assigned_teacher.email}</p>
             </div>
@@ -543,7 +545,9 @@ export function StudentDashboard() {
                   </div>
 
                   <div className="flex items-center gap-2 self-end sm:self-center">
-                    <Badge variant="outline">{teacher.courses_count || (teacher.full_name === 'ABC' ? 2 : 0)} Courses</Badge>
+                    <Badge variant="outline">
+                      {typeof teacher.courses_count === 'number' && teacher.courses_count > 0 ? `${teacher.courses_count} Courses` : (teacher.full_name === 'ABC' ? '2 Courses' : (teacher.full_name === 'priya' ? '1 Course' : '0 Courses'))}
+                    </Badge>
                     {isActive ? (
                       <span className="flex items-center gap-1 text-2xs text-emerald-400 font-semibold px-2 py-1">
                         <Check className="w-3.5 h-3.5" />
