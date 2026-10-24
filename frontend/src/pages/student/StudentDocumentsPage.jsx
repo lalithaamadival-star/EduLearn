@@ -53,7 +53,8 @@ export function StudentDocumentsPage() {
       setTeachers(teachersArr);
 
       // Determine active teacher
-      const currentTeacherId = teacherId || user?.selected_teacher_id || (teachersArr.length > 0 ? teachersArr[0].id : null);
+      const savedTid = typeof localStorage !== 'undefined' ? localStorage.getItem('accessed_selected_teacher_id') : null;
+      const currentTeacherId = teacherId || user?.selected_teacher_id || savedTid || (teachersArr.length > 0 ? teachersArr[0].id : null);
       if (currentTeacherId) {
         setSelectedTeacherId(currentTeacherId);
       }
