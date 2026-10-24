@@ -131,7 +131,7 @@ export function StudentDocumentsPage() {
   const filteredDocs = documents.filter(doc => {
     const q = searchQuery.toLowerCase();
     const title = (doc.title || doc.file_name || '').toLowerCase();
-    const concepts = (doc.concepts_detected || []).join(' ').toLowerCase();
+    const concepts = (doc.concepts_detected || []).map(c => typeof c === 'object' && c !== null ? `${c.term || ''} ${c.definition || ''}` : String(c)).join(' ').toLowerCase();
     const preview = (doc.markdown_preview || doc.extracted_markdown || '').toLowerCase();
     return title.includes(q) || concepts.includes(q) || preview.includes(q);
   });
@@ -237,7 +237,12 @@ export function StudentDocumentsPage() {
         /* Document Cards Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredDocs.map((doc) => {
-            const concepts = doc.concepts_detected || [];
+            const rawConcepts = doc.concepts_detected || [];
+            const concepts = (Array.isArray(rawConcepts) ? rawConcepts : []).map(c => {
+              if (typeof c === 'string') return c;
+              if (typeof c === 'object' && c !== null) return c.term || c.name || c.title || c.definition || '';
+              return String(c);
+            }).filter(Boolean);
             const previewText = doc.markdown_preview || doc.extracted_markdown || 'Study guide and lecture notes verified for accessible screen-reading and plain language synthesis.';
             const isWord = (doc.file_name || '').toLowerCase().endsWith('.docx');
             const isPdf = (doc.file_name || '').toLowerCase().endsWith('.pdf');
@@ -358,14 +363,17 @@ export function StudentDocumentsPage() {
             {activeDoc.concepts_detected && activeDoc.concepts_detected.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-3xs uppercase font-mono text-slate-400 font-bold mr-1">Key Topics:</span>
-                {activeDoc.concepts_detected.map((c, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-0.5 rounded-md bg-indigo-950/70 border border-indigo-700/60 text-2xs font-semibold text-indigo-300"
-                  >
-                    {c}
-                  </span>
-                ))}
+                {activeDoc.concepts_detected.map((c, i) => {
+                  const label = typeof c === 'object' && c !== null ? (c.term || c.name || c.title || c.definition || '') : String(c);
+                  return (
+                    <span
+                      key={i}
+                      className="px-2 py-0.5 rounded-md bg-indigo-950/70 border border-indigo-700/60 text-2xs font-semibold text-indigo-300"
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             )}
 
