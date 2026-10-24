@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
+import { useAuth } from '../../features/auth/AuthContext';
 import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOrientationContext';
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
@@ -25,6 +26,7 @@ import {
 import { StructuredContentRenderer, cleanSpokenText } from '../../components/common/StructuredContentRenderer';
 
 export function TeacherCoursesPage() {
+  const { user } = useAuth();
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +37,8 @@ export function TeacherCoursesPage() {
       section: 'Curriculum Administration',
       actions: ['Create new course', 'Edit course modules', 'Publish or unpublish curriculum']
     });
-    api.getCourses().then(data => setCourses(data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    api.getCourses(user?.id).then(data => setCourses(data || [])).catch(() => {}).finally(() => setLoading(false));
+  }, [user?.id]);
 
   if (loading) {
     return <div className="p-12 animate-pulse text-xs text-slate-400">Loading course curriculum...</div>;
@@ -106,6 +108,7 @@ export function TeacherCoursesPage() {
 }
 
 export function TeacherAIAssistantPage() {
+  const { user } = useAuth();
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [activeTab, setActiveTab] = useState('quiz'); // 'quiz' or 'general'
   const [courses, setCourses] = useState([]);
@@ -132,16 +135,17 @@ export function TeacherAIAssistantPage() {
       actions: ['Generate syllabus outlines', 'Create and push diagnostic quizzes', 'Draft accessible analogies']
     });
 
-    api.getCourses().then(data => {
-      setCourses(data);
-      if (data && data.length > 0) {
-        setSelectedCourseId(data[0].id);
-        if (data[0].modules?.[0]?.lessons?.[0]) {
-          setSelectedLessonId(data[0].modules[0].lessons[0].id);
+    api.getCourses(user?.id).then(data => {
+      const list = data || [];
+      setCourses(list);
+      if (list && list.length > 0) {
+        setSelectedCourseId(list[0].id);
+        if (list[0].modules?.[0]?.lessons?.[0]) {
+          setSelectedLessonId(list[0].modules[0].lessons[0].id);
         }
       }
     }).catch(() => {});
-  }, []);
+  }, [user?.id]);
 
   // Update selected lesson when course changes
   const handleCourseChange = (cid) => {

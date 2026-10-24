@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { useAuth } from '../../features/auth/AuthContext';
 import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOrientationContext';
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 
 export function DocumentProcessingPage() {
+  const { user } = useAuth();
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -36,11 +38,11 @@ export function DocumentProcessingPage() {
       actions: ['Upload syllabus document', 'Review extracted markdown', 'Publish to course lesson']
     });
     loadJobs();
-  }, []);
+  }, [user?.id]);
 
   const loadJobs = () => {
-    api.getDocumentJobs().then(data => {
-      setJobs(data);
+    api.getDocumentJobs(user?.id).then(data => {
+      setJobs(Array.isArray(data) ? data : []);
     }).catch(err => console.error("Error loading document jobs:", err));
   };
 
@@ -187,32 +189,42 @@ export function DocumentProcessingPage() {
           Ingestion & Review Queue ({jobs.length})
         </h2>
 
-        <div className="divide-y divide-slate-800 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          {jobs.map(job => (
-            <div key={job.job_id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-              <div className="space-y-1.5 max-w-xl">
-                <div className="flex items-center gap-2">
-                  <Badge variant={job.status === 'NEEDS_REVIEW' ? 'warning' : (job.status === 'READY' || job.status === 'PUBLISHED') ? 'success' : 'neutral'}>
-                    {job.status}
-                  </Badge>
-                  <span className="text-2xs font-mono text-slate-400">Job ID: {job.job_id}</span>
-                </div>
-                <div className="font-bold text-white text-sm truncate">{job.file_name}</div>
-                {job.extracted_structure && (
-                  <div className="text-2xs text-slate-400">
-                    Extracted: {job.extracted_structure.headings?.length || 3} sections • Proposed {job.extracted_structure.suggested_quiz_questions?.length || 1} quiz questions
+        {jobs.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+            <FileText className="w-6 h-6 text-slate-500 mx-auto" />
+            <div className="font-semibold text-slate-200">No Documents Uploaded Yet</div>
+            <p className="text-2xs text-slate-500 max-w-sm mx-auto">
+              Your educator workspace is clean. Use the upload button above to ingest syllabi, lecture notes, or research papers.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            {jobs.map(job => (
+              <div key={job.job_id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="space-y-1.5 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={job.status === 'NEEDS_REVIEW' ? 'warning' : (job.status === 'READY' || job.status === 'PUBLISHED') ? 'success' : 'neutral'}>
+                      {job.status}
+                    </Badge>
+                    <span className="text-2xs font-mono text-slate-400">Job ID: {job.job_id}</span>
                   </div>
-                )}
-              </div>
+                  <div className="font-bold text-white text-sm truncate">{job.file_name}</div>
+                  {job.extracted_structure && (
+                    <div className="text-2xs text-slate-400">
+                      Extracted: {job.extracted_structure.headings?.length || 3} sections • Proposed {job.extracted_structure.suggested_quiz_questions?.length || 1} quiz questions
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-3 shrink-0">
-                <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
-                  {job.status === 'PUBLISHED' ? 'View Published Markdown' : 'Review & Edit Draft'}
-                </Button>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
+                    {job.status === 'PUBLISHED' ? 'View Published Markdown' : 'Review & Edit Draft'}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Educator Review & Publish Modal */}
