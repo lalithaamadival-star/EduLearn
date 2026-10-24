@@ -70,6 +70,8 @@ export function DocumentProcessingPage() {
     announce(`Opened review editor for ${job.file_name}.`, 'polite');
   };
 
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
   const handleSaveReview = async () => {
     if (!selectedJob) return;
     try {
@@ -78,8 +80,9 @@ export function DocumentProcessingPage() {
         teacher_notes: teacherNotes,
         status: 'READY'
       });
-      setJobs(prev => prev.map(j => j.job_id === updated.job_id ? updated : j));
-      setSelectedJob(updated);
+      setJobs(prev => prev.map(j => j.job_id === updated.job_id ? { ...j, ...updated, status: 'READY' } : j));
+      setSelectedJob(prev => ({ ...prev, ...updated, status: 'READY' }));
+      setSaveSuccessMsg('✓ Review saved! Document is marked as READY and shared with students.');
       announce("Teacher edits saved. Document marked as Ready for publishing.", "polite");
     } catch (e) {
       announce("Failed to save document review.", "assertive");
@@ -189,7 +192,7 @@ export function DocumentProcessingPage() {
             <div key={job.job_id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="space-y-1.5 max-w-xl">
                 <div className="flex items-center gap-2">
-                  <Badge variant={job.status === 'NEEDS_REVIEW' ? 'warning' : job.status === 'PUBLISHED' ? 'success' : 'neutral'}>
+                  <Badge variant={job.status === 'NEEDS_REVIEW' ? 'warning' : (job.status === 'READY' || job.status === 'PUBLISHED') ? 'success' : 'neutral'}>
                     {job.status}
                   </Badge>
                   <span className="text-2xs font-mono text-slate-400">Job ID: {job.job_id}</span>
@@ -220,9 +223,15 @@ export function DocumentProcessingPage() {
         maxWidth="max-w-4xl"
       >
         <div className="space-y-4 text-xs">
-          <div className="p-3 bg-amber-950/20 border border-amber-700/40 rounded-xl text-amber-200 text-xs">
-            <strong>Mandatory Human Gate:</strong> Review AI-extracted markdown, verify accuracy and formulas, then click Publish to Course.
-          </div>
+          {saveSuccessMsg ? (
+            <div className="p-3 bg-emerald-950/60 border border-emerald-700/60 rounded-xl text-emerald-200 text-xs font-semibold">
+              {saveSuccessMsg}
+            </div>
+          ) : (
+            <div className="p-3 bg-amber-950/20 border border-amber-700/40 rounded-xl text-amber-200 text-xs">
+              <strong>Mandatory Human Gate:</strong> Review AI-extracted markdown, verify accuracy and formulas, then click Publish to Course.
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="markdown-editor" className="block font-semibold text-slate-200">

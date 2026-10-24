@@ -1,18 +1,64 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://edulearn-backend-n787.onrender.com';
+function getCandidateBases() {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  const isLocalHost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1'
+  );
 
-function getAuthHeaders() {
+  // If testing on localhost, try local backend (port 8000) first, with Render as fallback;
+  // If in production, use envUrl or Render with localhost as fallback.
+  const list = [];
+  if (isLocalHost) {
+    list.push('http://localhost:8000');
+    if (envUrl && envUrl !== 'http://localhost:8000') list.push(envUrl);
+    list.push('https://edulearn-backend-n787.onrender.com');
+  } else {
+    if (envUrl) list.push(envUrl);
+    list.push('https://edulearn-backend-n787.onrender.com');
+    list.push('http://localhost:8000');
+  }
+  return [...new Set(list)];
+}
+
+function getAuthHeaders(isFormData = false) {
   const token = localStorage.getItem('accessed_auth_token');
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = {};
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
 
+async function request(endpoint, options = {}) {
+  const bases = getCandidateBases();
+  let lastError = null;
+
+  for (let i = 0; i < bases.length; i++) {
+    const base = bases[i];
+    try {
+      const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      const url = `${base}${path}`;
+      const res = await fetch(url, options);
+
+      // If endpoint returns 404 and we have another candidate base, try it
+      if (res.status === 404 && i < bases.length - 1) {
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('Network service unavailable. Please verify connection.');
+}
+
 export const api = {
   // Authentication
   async login({ email, password, role_hint = 'STUDENT' }) {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const res = await request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, role_hint })
@@ -25,7 +71,7 @@ export const api = {
   },
 
   async signup({ email, password, full_name, role = 'STUDENT', organization = '', teacher_id = null }) {
-    const res = await fetch(`${API_BASE}/api/auth/signup`, {
+    const res = await request('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, full_name, role, organization, teacher_id })
@@ -38,33 +84,33 @@ export const api = {
   },
 
   async getMe() {
-    const res = await fetch(`${API_BASE}/api/auth/me`, { headers: getAuthHeaders() });
+    const res = await request('/api/auth/me', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Not authenticated');
     return res.json();
   },
 
   // Courses & Lessons
   async getCourses(teacherId = null) {
-    const url = teacherId ? `${API_BASE}/api/courses?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/courses`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const query = teacherId ? `?teacher_id=${encodeURIComponent(teacherId)}` : '';
+    const res = await request(`/api/courses${query}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch courses');
     return res.json();
   },
 
   async getCourse(idOrSlug) {
-    const res = await fetch(`${API_BASE}/api/courses/${idOrSlug}`, { headers: getAuthHeaders() });
+    const res = await request(`/api/courses/${idOrSlug}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch course details');
     return res.json();
   },
 
   async getLesson(idOrSlug) {
-    const res = await fetch(`${API_BASE}/api/lessons/${idOrSlug}`, { headers: getAuthHeaders() });
+    const res = await request(`/api/lessons/${idOrSlug}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch lesson');
     return res.json();
   },
 
   async markLessonComplete(id) {
-    const res = await fetch(`${API_BASE}/api/progress/lesson/${id}/complete`, {
+    const res = await request(`/api/progress/lesson/${id}/complete`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -73,7 +119,7 @@ export const api = {
 
   // Contextual AI
   async aiChat(data) {
-    const res = await fetch(`${API_BASE}/api/ai/chat`, {
+    const res = await request('/api/ai/chat', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -83,7 +129,7 @@ export const api = {
   },
 
   async aiSimplify(content) {
-    const res = await fetch(`${API_BASE}/api/ai/simplify`, {
+    const res = await request('/api/ai/simplify', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ content })
@@ -93,7 +139,7 @@ export const api = {
   },
 
   async aiSummarize(content) {
-    const res = await fetch(`${API_BASE}/api/ai/summarize`, {
+    const res = await request('/api/ai/summarize', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ content })
@@ -103,7 +149,7 @@ export const api = {
   },
 
   async aiTeacherAssist(prompt, lessonContent = null) {
-    const res = await fetch(`${API_BASE}/api/ai/teacher-assist`, {
+    const res = await request('/api/ai/teacher-assist', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -118,7 +164,7 @@ export const api = {
 
   // Text to Speech
   async synthesizeTTS(text, language = 'en', voice_id = null) {
-    const res = await fetch(`${API_BASE}/api/tts`, {
+    const res = await request('/api/tts', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ text, language, voice_id })
@@ -128,7 +174,7 @@ export const api = {
   },
 
   async getTTSVoices() {
-    const res = await fetch(`${API_BASE}/api/tts/voices`, {
+    const res = await request('/api/tts/voices', {
       headers: getAuthHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch TTS voices');
@@ -137,60 +183,46 @@ export const api = {
 
   // Accessible Quizzes
   async listQuizzes(lessonId = null) {
-    const url = lessonId ? `${API_BASE}/api/quizzes?lesson_id=${lessonId}` : `${API_BASE}/api/quizzes`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to list quizzes');
+    const query = lessonId ? `?lesson_id=${lessonId}` : '';
+    const res = await request(`/api/quizzes${query}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch quizzes');
     return res.json();
   },
 
-  async getQuiz(quizId) {
-    const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to load quiz');
+  async getQuiz(id) {
+    const res = await request(`/api/quizzes/${id}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Quiz unavailable');
     return res.json();
   },
 
-  async createQuiz(quizData) {
-    const res = await fetch(`${API_BASE}/api/quizzes`, {
+  async submitQuiz(id, answers) {
+    const res = await request(`/api/quizzes/${id}/submit`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(quizData)
+      body: JSON.stringify({ answers })
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Failed to save quiz');
-    }
+    if (!res.ok) throw new Error('Failed to record quiz results');
     return res.json();
   },
 
-  async submitQuiz(quizId, answers) {
-    const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/attempt`, {
+  async generateQuiz(lessonId) {
+    const res = await request(`/api/quizzes/generate/${lessonId}`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ quiz_id: quizId, answers })
+      headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to submit quiz attempt');
-    return res.json();
-  },
-
-  async explainQuizMistake(data) {
-    const res = await fetch(`${API_BASE}/api/quizzes/explain-mistake`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error('Mistake explanation unavailable');
+    if (!res.ok) throw new Error('Quiz generator unavailable');
     return res.json();
   },
 
   // Assignments
   async getAssignments() {
-    const res = await fetch(`${API_BASE}/api/assignments`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to load assignments');
+    const res = await request('/api/assignments', { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch assignments');
     return res.json();
   },
 
   async submitAssignment(id, content) {
-    const res = await fetch(`${API_BASE}/api/assignments/${id}/submit`, {
+    const res = await request(`/api/assignments/${id}/submit`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ submission_content: content })
@@ -201,14 +233,14 @@ export const api = {
 
   // Progress & Dashboard
   async getStudentDashboard(teacherId = null) {
-    const url = teacherId ? `${API_BASE}/api/students/dashboard?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/students/dashboard`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const query = teacherId ? `?teacher_id=${encodeURIComponent(teacherId)}` : '';
+    const res = await request(`/api/students/dashboard${query}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load student dashboard');
     return res.json();
   },
 
   async selectTeacher(teacherId) {
-    const res = await fetch(`${API_BASE}/api/students/select-teacher`, {
+    const res = await request('/api/students/select-teacher', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ teacher_id: teacherId })
@@ -221,32 +253,32 @@ export const api = {
   },
 
   async getTeachers() {
-    const res = await fetch(`${API_BASE}/api/teachers/list`);
+    const res = await request('/api/teachers/list');
     if (!res.ok) throw new Error('Failed to fetch educators list');
     return res.json();
   },
 
   async getProgress() {
-    const res = await fetch(`${API_BASE}/api/progress`, { headers: getAuthHeaders() });
+    const res = await request('/api/progress', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load learning progress');
     return res.json();
   },
 
   // Teacher Endpoints
   async getTeacherDashboard() {
-    const res = await fetch(`${API_BASE}/api/teachers/dashboard`, { headers: getAuthHeaders() });
+    const res = await request('/api/teachers/dashboard', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load teacher dashboard');
     return res.json();
   },
 
   async getClasses() {
-    const res = await fetch(`${API_BASE}/api/teachers/classes`, { headers: getAuthHeaders() });
+    const res = await request('/api/teachers/classes', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load classes');
     return res.json();
   },
 
   async createClass(data) {
-    const res = await fetch(`${API_BASE}/api/teachers/classes`, {
+    const res = await request('/api/teachers/classes', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data)
@@ -256,8 +288,8 @@ export const api = {
   },
 
   async getDocumentJobs(teacherId = null) {
-    const url = teacherId ? `${API_BASE}/api/documents?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/documents`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const query = teacherId ? `?teacher_id=${encodeURIComponent(teacherId)}` : '';
+    const res = await request(`/api/documents${query}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load document jobs');
     return res.json();
   },
@@ -267,17 +299,13 @@ export const api = {
   },
 
   async uploadDocument(file, courseId = null) {
-    const token = localStorage.getItem('accessed_auth_token');
     const formData = new FormData();
     formData.append('file', file);
     if (courseId) formData.append('course_id', courseId);
 
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await fetch(`${API_BASE}/api/documents/upload`, {
+    const res = await request('/api/documents/upload', {
       method: 'POST',
-      headers,
+      headers: getAuthHeaders(true),
       body: formData
     });
     if (!res.ok) throw new Error('Document upload failed');
@@ -285,7 +313,7 @@ export const api = {
   },
 
   async reviewDocument(jobId, updates) {
-    const res = await fetch(`${API_BASE}/api/documents/${jobId}/review`, {
+    const res = await request(`/api/documents/${jobId}/review`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updates)
@@ -295,7 +323,7 @@ export const api = {
   },
 
   async publishDocument(jobId) {
-    const res = await fetch(`${API_BASE}/api/documents/${jobId}/publish`, {
+    const res = await request(`/api/documents/${jobId}/publish`, {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -305,13 +333,13 @@ export const api = {
 
   // Accessibility Preferences
   async getPreferences() {
-    const res = await fetch(`${API_BASE}/api/accessibility/preferences`, { headers: getAuthHeaders() });
+    const res = await request('/api/accessibility/preferences', { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch preferences');
     return res.json();
   },
 
   async updatePreferences(updates) {
-    const res = await fetch(`${API_BASE}/api/accessibility/preferences`, {
+    const res = await request('/api/accessibility/preferences', {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updates)
