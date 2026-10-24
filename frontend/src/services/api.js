@@ -24,11 +24,11 @@ export const api = {
     return res.json();
   },
 
-  async signup({ email, password, full_name, role = 'STUDENT', organization = '' }) {
+  async signup({ email, password, full_name, role = 'STUDENT', organization = '', teacher_id = null }) {
     const res = await fetch(`${API_BASE}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name, role, organization })
+      body: JSON.stringify({ email, password, full_name, role, organization, teacher_id })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -44,8 +44,9 @@ export const api = {
   },
 
   // Courses & Lessons
-  async getCourses() {
-    const res = await fetch(`${API_BASE}/api/courses`, { headers: getAuthHeaders() });
+  async getCourses(teacherId = null) {
+    const url = teacherId ? `${API_BASE}/api/courses?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/courses`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch courses');
     return res.json();
   },
@@ -199,9 +200,29 @@ export const api = {
   },
 
   // Progress & Dashboard
-  async getStudentDashboard() {
-    const res = await fetch(`${API_BASE}/api/students/dashboard`, { headers: getAuthHeaders() });
+  async getStudentDashboard(teacherId = null) {
+    const url = teacherId ? `${API_BASE}/api/students/dashboard?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/students/dashboard`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load student dashboard');
+    return res.json();
+  },
+
+  async selectTeacher(teacherId) {
+    const res = await fetch(`${API_BASE}/api/students/select-teacher`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ teacher_id: teacherId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to select educator');
+    }
+    return res.json();
+  },
+
+  async getTeachers() {
+    const res = await fetch(`${API_BASE}/api/teachers/list`);
+    if (!res.ok) throw new Error('Failed to fetch educators list');
     return res.json();
   },
 
@@ -234,10 +255,15 @@ export const api = {
     return res.json();
   },
 
-  async getDocumentJobs() {
-    const res = await fetch(`${API_BASE}/api/documents`, { headers: getAuthHeaders() });
+  async getDocumentJobs(teacherId = null) {
+    const url = teacherId ? `${API_BASE}/api/documents?teacher_id=${encodeURIComponent(teacherId)}` : `${API_BASE}/api/documents`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load document jobs');
     return res.json();
+  },
+
+  async getStudyDocuments(teacherId = null) {
+    return this.getDocumentJobs(teacherId);
   },
 
   async uploadDocument(file, courseId = null) {

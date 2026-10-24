@@ -20,7 +20,8 @@ import {
   X,
   Layers,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  FileText
 } from 'lucide-react';
 
 export function StudentLayout() {
@@ -33,6 +34,7 @@ export function StudentLayout() {
   const studentNavItems = [
     { to: '/student', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { to: '/student/courses', label: 'My Learning', icon: BookOpen },
+    { to: '/student/documents', label: 'Study Materials', icon: FileText },
     { to: '/student/explore', label: 'Explore Courses', icon: Compass },
     { to: '/student/assignments', label: 'Assignments', icon: FileCheck2 },
     { to: '/student/revision', label: 'Revision', icon: RotateCcw },

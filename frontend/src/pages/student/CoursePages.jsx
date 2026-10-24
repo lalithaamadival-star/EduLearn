@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../services/api';
+import { useAuth } from '../../features/auth/AuthContext';
 import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOrientationContext';
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { BookOpen, ArrowRight, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw, UserCheck } from 'lucide-react';
+import { BookOpen, ArrowRight, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw, UserCheck, GraduationCap } from 'lucide-react';
 
 export function CourseLibraryPage() {
+  const { user, setSelectedTeacher } = useAuth();
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [courses, setCourses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState(() => user?.selected_teacher_id || 'ALL');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchCourses = () => {
+  const fetchCourses = async (teacherId = selectedTeacherId) => {
     setLoading(true);
     setError(null);
     updateOrientation({
@@ -21,18 +25,32 @@ export function CourseLibraryPage() {
       section: 'Course Catalog',
       actions: ['Inspect course syllabus', 'Launch lesson reader', 'Enroll in curriculum']
     });
-    api.getCourses()
-      .then(data => {
-        const list = Array.isArray(data) ? data : [];
-        setCourses(list);
-        announce(`Course catalog loaded. ${list.length} courses available.`, 'polite');
-      })
-      .catch(err => {
-        console.error("Failed to load course catalog:", err);
-        setError("Unable to load courses from server. Please verify your connection.");
-        announce("Failed to load courses. Please try again.", "assertive");
-      })
-      .finally(() => setLoading(false));
+
+    try {
+      const tList = await api.getTeachers().catch(() => []);
+      setTeachers(Array.isArray(tList) ? tList : []);
+
+      const tParam = (teacherId && teacherId !== 'ALL') ? teacherId : null;
+      const data = await api.getCourses(tParam);
+      const list = Array.isArray(data) ? data : [];
+      setCourses(list);
+      announce(`Course catalog loaded. ${list.length} courses available.`, 'polite');
+    } catch (err) {
+      console.error("Failed to load course catalog:", err);
+      setError("Unable to load courses from server. Please verify your connection.");
+      announce("Failed to load courses. Please try again.", "assertive");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTeacherFilter = (tId) => {
+    setSelectedTeacherId(tId);
+    if (tId !== 'ALL' && setSelectedTeacher) {
+      api.selectTeacher(tId).catch(() => {});
+      setSelectedTeacher(tId);
+    }
+    fetchCourses(tId);
   };
 
   useEffect(() => {
@@ -70,16 +88,40 @@ export function CourseLibraryPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="space-y-2 border-b border-slate-800 pb-6">
-        <span className="text-2xs font-mono text-indigo-400 font-bold uppercase tracking-wider">
-          Enrolled Curricula
-        </span>
-        <h1 className="text-3xl font-extrabold text-white">
-          My Learning Catalog
-        </h1>
-        <p className="text-xs text-slate-400">
-          All courses feature full multimodal equivalence across visual, auditory, and plain language modes.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+        <div>
+          <span className="text-2xs font-mono text-indigo-400 font-bold uppercase tracking-wider">
+            Enrolled Curricula
+          </span>
+          <h1 className="text-3xl font-extrabold text-white">
+            My Learning Catalog
+          </h1>
+          <p className="text-xs text-slate-400">
+            All courses feature full multimodal equivalence across visual, auditory, and plain language modes.
+          </p>
+        </div>
+
+        {teachers.length > 0 && (
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800 shrink-0">
+            <GraduationCap className="w-5 h-5 text-indigo-400 shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-3xs uppercase font-mono font-bold text-slate-400">Filter by Educator</span>
+              <select
+                value={selectedTeacherId}
+                onChange={(e) => handleTeacherFilter(e.target.value)}
+                aria-label="Filter courses by educator"
+                className="bg-transparent text-xs font-semibold text-slate-100 focus:outline-none cursor-pointer pr-2"
+              >
+                <option value="ALL" className="bg-slate-900 text-slate-100">All Faculty Courses</option>
+                {teachers.map(t => (
+                  <option key={t.id} value={t.id} className="bg-slate-900 text-slate-100">
+                    {t.full_name} ({t.courses_count || 0} courses)
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {courses.length === 0 ? (

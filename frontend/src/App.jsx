@@ -26,6 +26,7 @@ import { ProtectedRoute, PublicAuthRoute } from './components/common/ProtectedRo
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
+import { StudentDocumentsPage } from './pages/student/StudentDocumentsPage';
 import { CourseLibraryPage, CourseDetailPage } from './pages/student/CoursePages';
 import { LessonReaderPage } from './pages/student/LessonReaderPage';
 import { AITutorPage } from './pages/student/AITutorPage';
@@ -102,6 +103,7 @@ export default function App() {
                   <Route index element={<StudentDashboard />} />
                   <Route path="courses" element={<CourseLibraryPage />} />
                   <Route path="explore" element={<CourseLibraryPage />} />
+                  <Route path="documents" element={<StudentDocumentsPage />} />
                   <Route path="courses/:courseSlug" element={<CourseDetailPage />} />
                   <Route path="ai-tutor" element={<AITutorPage />} />
                   <Route path="assignments" element={<AssignmentsPage />} />
