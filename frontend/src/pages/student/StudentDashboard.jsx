@@ -7,6 +7,7 @@ import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { StructuredContentRenderer, stripMarkdownHashes } from '../../components/common/StructuredContentRenderer';
 import {
   BookOpen,
   ArrowRight,
@@ -24,7 +25,8 @@ import {
   Volume2,
   VolumeX,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 
 export function StudentDashboard() {
@@ -342,27 +344,45 @@ export function StudentDashboard() {
                       <div className="flex flex-wrap gap-1">
                         {concepts.slice(0, 3).map((c, i) => (
                           <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-3xs text-indigo-300">
-                            #{c}
+                            {c}
                           </span>
                         ))}
                       </div>
                     )}
 
                     <p className="text-2xs text-slate-300 line-clamp-2 leading-relaxed bg-slate-950/50 p-2 rounded-lg border border-slate-850">
-                      {preview.replace(/[#*`_]/g, '')}
+                      {stripMarkdownHashes(preview)}
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-3xs text-slate-400 font-mono">
-                      By {assigned_teacher?.full_name || 'Educator'}
-                    </span>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={doc.file_url || `/api/documents/${doc.job_id}/file`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-3xs font-semibold border border-slate-700 transition-colors"
+                        title="View actual physical document"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
+                        <span>File</span>
+                      </a>
+                      <a
+                        href={doc.download_url || `/api/documents/${doc.job_id}/download`}
+                        download={doc.file_name}
+                        className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                        title="Download file"
+                      >
+                        <Download className="w-3 h-3" />
+                      </a>
+                    </div>
+
                     <Button
                       variant="primary"
                       size="sm"
                       icon={Eye}
                       onClick={() => setReadingDoc(doc)}
-                      className="text-xs"
+                      className="text-xs py-1 px-2.5"
                     >
                       Read Notes
                     </Button>
@@ -598,26 +618,50 @@ export function StudentDashboard() {
                 <span>Uploaded by <span className="text-white font-semibold">{assigned_teacher?.full_name || 'Educator'}</span></span>
               </div>
 
-              <button
-                onClick={() => handleToggleTTS(readingDoc.extracted_markdown || readingDoc.markdown_preview || '')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isReadingAudio
-                    ? 'bg-rose-600 text-white shadow-lg animate-pulse'
-                    : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
-                }`}
-              >
-                {isReadingAudio ? (
-                  <>
-                    <VolumeX className="w-3.5 h-3.5" />
-                    <span>Stop Reading</span>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Listen Aloud (TTS)</span>
-                  </>
-                )}
-              </button>
+              {/* Action Toolbar */}
+              <div className="flex items-center gap-2">
+                <a
+                  href={readingDoc.file_url || `/api/documents/${readingDoc.job_id}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                  title="Open original uploaded file in new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>View Original File</span>
+                </a>
+
+                <a
+                  href={readingDoc.download_url || `/api/documents/${readingDoc.job_id}/download`}
+                  download={readingDoc.file_name}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                  title="Download file"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Download</span>
+                </a>
+
+                <button
+                  onClick={() => handleToggleTTS(readingDoc.extracted_markdown || readingDoc.markdown_preview || '')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isReadingAudio
+                      ? 'bg-rose-600 text-white shadow-lg animate-pulse'
+                      : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
+                  }`}
+                >
+                  {isReadingAudio ? (
+                    <>
+                      <VolumeX className="w-3.5 h-3.5" />
+                      <span>Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>Listen (TTS)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {readingDoc.concepts_detected && readingDoc.concepts_detected.length > 0 && (
@@ -640,17 +684,29 @@ export function StudentDashboard() {
             <div
               tabIndex="0"
               aria-label="Document reader viewport"
-              className="p-5 max-h-[50vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-3 whitespace-pre-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              className="p-5 max-h-[50vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
-              {readingDoc.extracted_markdown || readingDoc.markdown_preview || 'No text extracted.'}
+              <StructuredContentRenderer
+                rawContent={stripMarkdownHashes(readingDoc.extracted_markdown || readingDoc.markdown_preview || 'No text extracted.')}
+              />
             </div>
 
-            <div className="flex justify-between items-center pt-3 border-t border-slate-800">
-              <Link to="/student/documents" onClick={handleCloseDocModal}>
-                <span className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
-                  Open full Study Materials Hub →
-                </span>
-              </Link>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center gap-3">
+                <Link to="/student/documents" onClick={handleCloseDocModal}>
+                  <span className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+                    Open full Study Materials Hub →
+                  </span>
+                </Link>
+                <a
+                  href={readingDoc.file_url || `/api/documents/${readingDoc.job_id}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-400 hover:text-slate-300 underline underline-offset-2"
+                >
+                  Source File ({readingDoc.file_name})
+                </a>
+              </div>
               <Button variant="outline" size="sm" onClick={handleCloseDocModal}>
                 Done Reading
               </Button>

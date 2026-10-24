@@ -6,6 +6,7 @@ import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { StructuredContentRenderer, stripMarkdownHashes } from '../../components/common/StructuredContentRenderer';
 import {
   Upload,
   FileText,
@@ -17,7 +18,10 @@ import {
   Eye,
   Check,
   UploadCloud,
-  FileCode
+  FileCode,
+  ExternalLink,
+  Download,
+  Eraser
 } from 'lucide-react';
 
 export function DocumentProcessingPage() {
@@ -30,6 +34,7 @@ export function DocumentProcessingPage() {
   const [editedMarkdown, setEditedMarkdown] = useState('');
   const [teacherNotes, setTeacherNotes] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [activeReviewTab, setActiveReviewTab] = useState('editor'); // 'editor' | 'preview'
 
   useEffect(() => {
     updateOrientation({
@@ -216,7 +221,25 @@ export function DocumentProcessingPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={job.file_url || `/api/documents/${job.job_id}/file`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+                    title="View uploaded document in browser"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    <span>View File</span>
+                  </a>
+                  <a
+                    href={job.download_url || `/api/documents/${job.job_id}/download`}
+                    download={job.file_name}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                    title="Download original file"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
                   <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
                     {job.status === 'PUBLISHED' ? 'View Published Markdown' : 'Review & Edit Draft'}
                   </Button>
@@ -245,18 +268,100 @@ export function DocumentProcessingPage() {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label htmlFor="markdown-editor" className="block font-semibold text-slate-200">
-              Extracted Curriculum Markdown (Editable)
-            </label>
-            <textarea
-              id="markdown-editor"
-              rows={12}
-              value={editedMarkdown}
-              onChange={(e) => setEditedMarkdown(e.target.value)}
-              className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 leading-relaxed"
-            />
+          {/* Source Document File Bar */}
+          <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-amber-400" />
+              <span className="text-slate-200 font-semibold">{selectedJob?.file_name}</span>
+              <span className="text-3xs text-slate-500 font-mono">({selectedJob?.job_id})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={selectedJob?.file_url || `/api/documents/${selectedJob?.job_id}/file`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3 text-amber-400" />
+                <span>View Original File</span>
+              </a>
+              <a
+                href={selectedJob?.download_url || `/api/documents/${selectedJob?.job_id}/download`}
+                download={selectedJob?.file_name}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+              >
+                <Download className="w-3 h-3" />
+                <span>Download</span>
+              </a>
+            </div>
           </div>
+
+          {/* Mode Switcher & Hash Cleaner Toolbar */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveReviewTab('editor')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeReviewTab === 'editor'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Markdown Editor
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveReviewTab('preview')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeReviewTab === 'preview'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Student Live View (Zero Hashes)
+              </button>
+            </div>
+
+            {activeReviewTab === 'editor' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedMarkdown(prev => stripMarkdownHashes(prev));
+                  announce("Cleaned all raw '#' hashes from document text.", "polite");
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                title="Remove all raw '#' markdown heading characters from the text"
+              >
+                <Eraser className="w-3 h-3" />
+                <span>Clean '#' Hashes</span>
+              </button>
+            )}
+          </div>
+
+          {activeReviewTab === 'editor' ? (
+            <div className="space-y-1.5">
+              <label htmlFor="markdown-editor" className="block font-semibold text-slate-200">
+                Extracted Curriculum Markdown (Editable)
+              </label>
+              <textarea
+                id="markdown-editor"
+                rows={12}
+                value={editedMarkdown}
+                onChange={(e) => setEditedMarkdown(e.target.value)}
+                className="w-full p-4 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 leading-relaxed"
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="text-2xs text-slate-400 uppercase font-mono font-bold">
+                Live Formatted Preview (Accessible Multi-Sensory Renderer):
+              </div>
+              <div className="p-5 max-h-[45vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800">
+                <StructuredContentRenderer rawContent={stripMarkdownHashes(editedMarkdown)} />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="teacher-notes-input" className="block font-semibold text-slate-200">

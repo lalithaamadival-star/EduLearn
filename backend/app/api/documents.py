@@ -1,6 +1,9 @@
+import os
+import re
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi.responses import FileResponse
 from typing import Dict, Any, Optional
 from app.models.schemas import DocumentProcessingJobResponse, DocumentReviewUpdateRequest
 from app.services.ocr.gemini_service import gemini_document_service
@@ -10,6 +13,18 @@ from app.core.logging import logger
 
 router = APIRouter(prefix="/api/documents", tags=["Document Intelligence & OCR"])
 
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def clean_hashes_from_preview(raw_md: str) -> str:
+    """Removes all leading markdown hashes (#, ##, ###) and bold markers for clean card previews."""
+    if not raw_md:
+        return "Curriculum study notes verified for accessible multi-sensory learning."
+    cleaned = re.sub(r'#{1,6}\s*', '', raw_md)
+    cleaned = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return (cleaned[:280] + "...") if len(cleaned) > 280 else cleaned
+
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
@@ -18,15 +33,29 @@ async def upload_document(
 ):
     """
     Teacher uploads PDF, DOCX, PPTX, or Image.
-    Enters state: QUEUED -> PROCESSING -> Gemini extraction -> NEEDS_REVIEW.
+    Persists actual physical file for sharing/download, extracts OCR, enters state: NEEDS_REVIEW.
     Never automatically publishes.
     """
     job_id = f"job-{uuid.uuid4().hex[:8]}"
     content_bytes = await file.read()
-    text_preview = content_bytes[:4000].decode("utf-8", errors="ignore")
+    
+    # Save the actual physical file to uploads directory so students & teachers can view/download
+    safe_filename = file.filename.replace(" ", "_")
+    saved_filename = f"{job_id}_{safe_filename}"
+    file_path = os.path.join(UPLOAD_DIR, saved_filename)
+    try:
+        with open(file_path, "wb") as f_out:
+            f_out.write(content_bytes)
+    except Exception as e:
+        logger.error(f"Failed to persist physical file: {e}")
 
+    text_preview = content_bytes[:4000].decode("utf-8", errors="ignore")
     now_iso = datetime.now(timezone.utc).isoformat()
     teacher_id = str(user["id"])
+    file_url = f"/api/documents/{job_id}/file"
+    download_url = f"/api/documents/{job_id}/download"
+    file_size = len(content_bytes)
+    mime_type = file.content_type or "application/octet-stream"
 
     # Create job in data_store
     data_store.document_jobs[job_id] = {
@@ -38,6 +67,11 @@ async def upload_document(
         "uploaded_at": now_iso,
         "updated_at": now_iso,
         "course_id": course_id,
+        "file_path": file_path,
+        "file_url": file_url,
+        "download_url": download_url,
+        "file_size": file_size,
+        "mime_type": mime_type,
         "extracted_structure": None,
         "extracted_markdown": None,
         "teacher_notes": None,
@@ -56,9 +90,15 @@ async def upload_document(
             "title": extracted.get("title", file.filename),
             "headings": extracted.get("headings", []),
             "key_concepts": extracted.get("key_concepts", []),
-            "suggested_quiz_questions": extracted.get("suggested_quiz_questions", [])
+            "suggested_quiz_questions": extracted.get("suggested_quiz_questions", []),
+            "file_url": file_url,
+            "download_url": download_url,
+            "file_size": file_size,
+            "mime_type": mime_type,
+            "file_path": file_path
         }
         data_store.document_jobs[job_id]["extracted_markdown"] = extracted.get("markdown_content", "")
+        data_store.document_jobs[job_id]["markdown_preview"] = clean_hashes_from_preview(extracted.get("markdown_content", ""))
         data_store.document_jobs[job_id]["status"] = "NEEDS_REVIEW"
         data_store.document_jobs[job_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
     except Exception as e:
@@ -94,13 +134,23 @@ async def list_documents(
         doc_copy["teacher_organization"] = teacher.get("organization") if teacher else "Department of Computer Science & Engineering"
         struct = doc_copy.get("extracted_structure") or {}
         acc_out = doc_copy.get("accessible_output") or {}
+        jid = str(doc_copy.get("job_id") or "")
+        
+        # Original physical file links for viewing and downloading
+        doc_copy["file_url"] = struct.get("file_url") or doc_copy.get("file_url") or f"/api/documents/{jid}/file"
+        doc_copy["download_url"] = struct.get("download_url") or doc_copy.get("download_url") or f"/api/documents/{jid}/download"
+        doc_copy["file_size"] = struct.get("file_size") or doc_copy.get("file_size")
+        doc_copy["mime_type"] = struct.get("mime_type") or doc_copy.get("mime_type")
+
         if not doc_copy.get("title"):
             doc_copy["title"] = struct.get("title") or doc_copy.get("file_name", "Study Document")
         if not doc_copy.get("extracted_markdown") and isinstance(acc_out, dict):
             doc_copy["extracted_markdown"] = acc_out.get("markdown_content") or ""
-        if not doc_copy.get("markdown_preview"):
-            md = doc_copy.get("extracted_markdown") or ""
-            doc_copy["markdown_preview"] = (md[:280] + "...") if len(md) > 280 else md
+        
+        # Clean preview without '#' markers
+        raw_md = doc_copy.get("extracted_markdown") or ""
+        doc_copy["markdown_preview"] = clean_hashes_from_preview(raw_md)
+
         if not doc_copy.get("concepts_detected"):
             raw_c = struct.get("key_concepts") or []
             doc_copy["concepts_detected"] = [
@@ -119,6 +169,72 @@ async def list_documents(
             return filtered
         return [d for d in enriched_docs if d.get("is_shared_with_students", True)]
 
+@router.get("/{job_id}/file")
+async def view_document_file(job_id: str):
+    """Serves the actual uploaded physical file inline for in-browser viewing."""
+    if job_id not in data_store.document_jobs:
+        data_store.sync_document_jobs()
+    if job_id not in data_store.document_jobs:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    job = data_store.document_jobs[job_id]
+    struct = job.get("extracted_structure") or {}
+    file_name = job.get("file_name", "document.pdf")
+    safe_filename = file_name.replace(" ", "_")
+    file_path = struct.get("file_path") or job.get("file_path") or os.path.join(UPLOAD_DIR, f"{job_id}_{safe_filename}")
+
+    if not os.path.exists(file_path):
+        matched = [f for f in os.listdir(UPLOAD_DIR) if f.startswith(job_id)]
+        if matched:
+            file_path = os.path.join(UPLOAD_DIR, matched[0])
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Original physical file not found on server")
+
+    media_type = struct.get("mime_type") or job.get("mime_type") or "application/pdf"
+    if file_name.lower().endswith(".pdf"):
+        media_type = "application/pdf"
+    elif file_name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        media_type = f"image/{file_name.split('.')[-1].lower()}"
+    elif file_name.lower().endswith((".txt", ".md")):
+        media_type = "text/plain"
+
+    return FileResponse(
+        file_path,
+        media_type=media_type,
+        filename=file_name,
+        content_disposition_type="inline"
+    )
+
+@router.get("/{job_id}/download")
+async def download_document_file(job_id: str):
+    """Downloads the actual uploaded physical document directly."""
+    if job_id not in data_store.document_jobs:
+        data_store.sync_document_jobs()
+    if job_id not in data_store.document_jobs:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    job = data_store.document_jobs[job_id]
+    struct = job.get("extracted_structure") or {}
+    file_name = job.get("file_name", "document.pdf")
+    safe_filename = file_name.replace(" ", "_")
+    file_path = struct.get("file_path") or job.get("file_path") or os.path.join(UPLOAD_DIR, f"{job_id}_{safe_filename}")
+
+    if not os.path.exists(file_path):
+        matched = [f for f in os.listdir(UPLOAD_DIR) if f.startswith(job_id)]
+        if matched:
+            file_path = os.path.join(UPLOAD_DIR, matched[0])
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Original physical file not found on server")
+
+    return FileResponse(
+        file_path,
+        media_type="application/octet-stream",
+        filename=file_name,
+        content_disposition_type="attachment"
+    )
+
 @router.get("/{job_id}")
 async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     if job_id not in data_store.document_jobs:
@@ -132,13 +248,21 @@ async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_curre
     job["teacher_email"] = teacher.get("email") if teacher else None
     struct = job.get("extracted_structure") or {}
     acc_out = job.get("accessible_output") or {}
+    
+    # Original physical file links
+    job["file_url"] = struct.get("file_url") or job.get("file_url") or f"/api/documents/{job_id}/file"
+    job["download_url"] = struct.get("download_url") or job.get("download_url") or f"/api/documents/{job_id}/download"
+    job["file_size"] = struct.get("file_size") or job.get("file_size")
+    job["mime_type"] = struct.get("mime_type") or job.get("mime_type")
+
     if not job.get("title"):
         job["title"] = struct.get("title") or job.get("file_name", "Study Document")
     if not job.get("extracted_markdown") and isinstance(acc_out, dict):
         job["extracted_markdown"] = acc_out.get("markdown_content") or ""
-    if not job.get("markdown_preview"):
-        md = job.get("extracted_markdown") or ""
-        job["markdown_preview"] = (md[:280] + "...") if len(md) > 280 else md
+    
+    raw_md = job.get("extracted_markdown") or ""
+    job["markdown_preview"] = clean_hashes_from_preview(raw_md)
+
     if not job.get("concepts_detected"):
         raw_c = struct.get("key_concepts") or []
         job["concepts_detected"] = [
@@ -174,6 +298,7 @@ async def review_document(
     job = data_store.document_jobs[job_id]
     if update.extracted_markdown is not None:
         job["extracted_markdown"] = update.extracted_markdown
+        job["markdown_preview"] = clean_hashes_from_preview(update.extracted_markdown)
     if update.teacher_notes is not None:
         job["teacher_notes"] = update.teacher_notes
     if update.status:

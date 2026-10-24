@@ -23,7 +23,7 @@ class GeminiDocumentService:
                 "responseMimeType": "application/json"
             }
         }
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.post(endpoint, headers=headers, json=payload)
             if resp.status_code == 200:
                 data = resp.json()

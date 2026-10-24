@@ -174,10 +174,33 @@ function renderInlineFormatting(text) {
 }
 
 /**
+ * Strips all raw markdown heading hashes (#, ##, ###) and trailing hashes from text.
+ * Ensures cards, previews, and reader views never show raw '#' symbols.
+ */
+export function stripMarkdownHashes(text) {
+  if (!text) return '';
+  return String(text)
+    // Remove leading heading hashes
+    .replace(/^(\s*)#{1,6}\s+/gm, '$1')
+    // Remove trailing heading hashes
+    .replace(/\s+#{1,6}\s*$/gm, '')
+    // Remove standalone hash lines
+    .replace(/^\s*#{1,6}\s*$/gm, '')
+    // Remove any lingering multiple hashes
+    .replace(/#{1,6}/g, '')
+    .trim();
+}
+
+function cleanHeadingLine(line) {
+  if (!line) return '';
+  return line.replace(/^#{1,6}\s*/, '').replace(/\s*#{1,6}$/, '').trim();
+}
+
+/**
  * Renders an AI or lesson text in a beautifully structured, readable, accessible format.
  * Automatically parses:
  * - Code blocks (```lang ... ```)
- * - Headers (#, ##, ###, ####)
+ * - Headers (#, ##, ###, ####) without showing raw '#'
  * - Key Takeaway / Callout boxes (> Note:, 💡 Key Takeaway:, ⚠️ Alert:)
  * - Numbered steps with badges (1. 2. 3.)
  * - Bullet lists (- item)
@@ -223,35 +246,81 @@ export function StructuredContentRenderer({ rawContent, className = '', isCompac
           return <CodeBlock key={bIdx} code={block.content} language={block.language} isCompact={isCompact} />;
         }
 
-        // Split text block into distinct paragraphs
-        const paragraphs = block.content.split(/\n\s*\n/);
+        // Process lines sequentially to handle headings anywhere in the text
+        const rawLines = block.content.split('\n').map(l => l.trim()).filter(Boolean);
+        if (rawLines.length === 0) return null;
 
         return (
-          <div key={bIdx} className="space-y-3.5">
-            {paragraphs.map((para, pIdx) => {
-              const lines = para.trim().split('\n').map(l => l.trim()).filter(Boolean);
-              if (lines.length === 0) return null;
+          <div key={bIdx} className="space-y-3">
+            {rawLines.map((line, lIdx) => {
+              // 1. H1 Heading: # Title
+              if (/^#\s+/.test(line)) {
+                return (
+                  <div key={lIdx} className="space-y-2 pb-2 border-b border-slate-800 my-4 pt-2">
+                    <h2 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" />
+                      {renderInlineFormatting(cleanHeadingLine(line))}
+                    </h2>
+                  </div>
+                );
+              }
 
-              const firstLine = lines[0];
+              // 2. H2 Heading: ## Section
+              if (/^##\s+/.test(line)) {
+                return (
+                  <div key={lIdx} className="space-y-2 my-3 pt-2">
+                    <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shrink-0" />
+                      {renderInlineFormatting(cleanHeadingLine(line))}
+                    </h3>
+                  </div>
+                );
+              }
 
-              // Callout / Blockquote or Takeaway block
+              // 3. H3 / H4 / H5 / H6 Headings: ### Subsection or #### Point
+              if (/^#{3,6}\s+/.test(line)) {
+                const headingText = cleanHeadingLine(line);
+                const isKeyTakeaway = headingText.toLowerCase().includes('takeaway') || headingText.toLowerCase().includes('summary');
+
+                if (isKeyTakeaway) {
+                  return (
+                    <div key={lIdx} className="p-3.5 sm:p-4 rounded-xl bg-indigo-950/35 border border-indigo-600/50 space-y-2 my-3">
+                      <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs sm:text-sm">
+                        <Bookmark className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <span>{renderInlineFormatting(headingText)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={lIdx} className="space-y-1.5 my-2.5 pt-1">
+                    <h4 className="text-sm sm:text-base font-bold text-indigo-300 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-sm bg-indigo-400 inline-block shrink-0" />
+                      {renderInlineFormatting(headingText)}
+                    </h4>
+                  </div>
+                );
+              }
+
+              // 4. Callout / Blockquote or Key Takeaway
               const isCallout =
-                firstLine.startsWith('> ') ||
-                firstLine.toLowerCase().includes('key takeaway') ||
-                firstLine.toLowerCase().includes('misconception') ||
-                firstLine.toLowerCase().includes('core principle') ||
-                firstLine.startsWith('💡') ||
-                firstLine.startsWith('⚠️');
+                line.startsWith('> ') ||
+                line.toLowerCase().includes('key takeaway') ||
+                line.toLowerCase().includes('misconception') ||
+                line.toLowerCase().includes('core principle') ||
+                line.startsWith('💡') ||
+                line.startsWith('⚠️');
 
               if (isCallout) {
-                const isWarning = firstLine.toLowerCase().includes('misconception') || firstLine.startsWith('⚠️') || firstLine.toLowerCase().includes('warning');
-                const calloutTitle = firstLine.replace(/^>\s*(\[!NOTE\]|\[!TIP\]|\[!WARNING\])?\s*/i, '').replace(/^[💡⚠️🎯\s]+/, '');
+                const isWarning = line.toLowerCase().includes('misconception') || line.startsWith('⚠️') || line.toLowerCase().includes('warning');
+                const calloutText = line.replace(/^>\s*(\[!NOTE\]|\[!TIP\]|\[!WARNING\])?\s*/i, '').replace(/^[💡⚠️🎯\s]+/, '').replace(/^#{1,6}\s*/, '');
 
                 return (
                   <div
-                    key={pIdx}
+                    key={lIdx}
                     role="note"
-                    className={`p-3.5 sm:p-4 rounded-xl border my-3 space-y-2 shadow-sm ${
+                    className={`p-3.5 sm:p-4 rounded-xl border my-2.5 space-y-1.5 shadow-sm ${
                       isWarning
                         ? 'bg-amber-950/30 border-amber-700/60 text-amber-200'
                         : 'bg-indigo-950/30 border-indigo-700/60 text-indigo-200'
@@ -263,153 +332,47 @@ export function StructuredContentRenderer({ rawContent, className = '', isCompac
                       ) : (
                         <Lightbulb className="w-4 h-4 text-indigo-400 shrink-0" />
                       )}
-                      <span>{renderInlineFormatting(calloutTitle)}</span>
+                      <span>{renderInlineFormatting(calloutText)}</span>
                     </div>
-                    {lines.slice(1).map((line, lIdx) => (
-                      <p key={lIdx} className="text-slate-300 text-xs sm:text-sm leading-relaxed pl-6">
-                        {renderInlineFormatting(line.replace(/^>\s*/, ''))}
-                      </p>
-                    ))}
                   </div>
                 );
               }
 
-              // H1 Heading: # Title
-              if (firstLine.startsWith('# ')) {
+              // 5. Numbered step: 1. Step
+              if (/^\d+\.\s/.test(line)) {
+                const numMatch = line.match(/^(\d+)\.\s*(.*)/);
+                const stepText = numMatch[2].replace(/^#{1,6}\s*/, '');
                 return (
-                  <div key={pIdx} className="space-y-2 pb-2 border-b border-slate-800 my-3">
-                    <h2 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" />
-                      {renderInlineFormatting(firstLine.replace(/^#\s+/, ''))}
-                    </h2>
-                    {lines.slice(1).map((line, lIdx) => (
-                      <p key={lIdx} className="text-slate-300 leading-relaxed">
-                        {renderInlineFormatting(line)}
-                      </p>
-                    ))}
-                  </div>
-                );
-              }
-
-              // H2 Heading: ## Section
-              if (firstLine.startsWith('## ')) {
-                return (
-                  <div key={pIdx} className="space-y-2 my-3">
-                    <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shrink-0" />
-                      {renderInlineFormatting(firstLine.replace(/^##\s+/, ''))}
-                    </h3>
-                    {lines.slice(1).map((line, lIdx) => (
-                      <p key={lIdx} className="text-slate-300 leading-relaxed">
-                        {renderInlineFormatting(line)}
-                      </p>
-                    ))}
-                  </div>
-                );
-              }
-
-              // H3 Heading: ### Subsection
-              if (firstLine.startsWith('### ')) {
-                const headingText = firstLine.replace(/^###\s+/, '');
-                const isKeyTakeaway = headingText.toLowerCase().includes('takeaway') || headingText.toLowerCase().includes('summary');
-
-                if (isKeyTakeaway) {
-                  return (
-                    <div key={pIdx} className="p-3.5 sm:p-4 rounded-xl bg-indigo-950/35 border border-indigo-600/50 space-y-2 my-3">
-                      <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs sm:text-sm">
-                        <Bookmark className="w-4 h-4 text-indigo-400 shrink-0" />
-                        <span>{renderInlineFormatting(headingText)}</span>
-                      </div>
-                      {lines.slice(1).map((line, lIdx) => (
-                        <p key={lIdx} className="text-slate-200 text-xs sm:text-sm leading-relaxed pl-6">
-                          {renderInlineFormatting(line)}
-                        </p>
-                      ))}
+                  <div key={lIdx} className="flex items-start gap-2.5 pl-1.5 my-1.5">
+                    <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-indigo-600/25 text-indigo-300 border border-indigo-500/40 text-3xs sm:text-2xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      {numMatch[1]}
+                    </span>
+                    <div className="text-slate-300 leading-relaxed text-xs sm:text-sm">
+                      {renderInlineFormatting(stepText)}
                     </div>
-                  );
-                }
-
-                return (
-                  <div key={pIdx} className="space-y-2 my-2.5">
-                    <h4 className="text-sm sm:text-base font-bold text-indigo-300 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-sm bg-indigo-400 inline-block shrink-0" />
-                      {renderInlineFormatting(headingText)}
-                    </h4>
-                    {lines.slice(1).map((line, lIdx) => {
-                      // Numbered step: 1. Step
-                      if (/^\d+\.\s/.test(line)) {
-                        const numMatch = line.match(/^(\d+)\.\s*(.*)/);
-                        return (
-                          <div key={lIdx} className="flex items-start gap-2.5 pl-1.5 my-1.5">
-                            <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-indigo-600/25 text-indigo-300 border border-indigo-500/40 text-3xs sm:text-2xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5">
-                              {numMatch[1]}
-                            </span>
-                            <div className="text-slate-300 leading-relaxed text-xs sm:text-sm">
-                              {renderInlineFormatting(numMatch[2])}
-                            </div>
-                          </div>
-                        );
-                      }
-                      // Bullet point: - Bullet
-                      if (line.startsWith('- ') || line.startsWith('* ')) {
-                        return (
-                          <div key={lIdx} className="flex items-start gap-2 pl-2 my-1 text-slate-300">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
-                            <div className="leading-relaxed text-xs sm:text-sm">
-                              {renderInlineFormatting(line.replace(/^[-*]\s+/, ''))}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <p key={lIdx} className="text-slate-300 leading-relaxed">
-                          {renderInlineFormatting(line)}
-                        </p>
-                      );
-                    })}
                   </div>
                 );
               }
 
-              // List of lines (mixed bullets, numbers, and plain sentences)
+              // 6. Bullet item: - Item or * Item
+              if (line.startsWith('- ') || line.startsWith('* ')) {
+                const bulletText = line.replace(/^[-*]\s+/, '').replace(/^#{1,6}\s*/, '');
+                return (
+                  <div key={lIdx} className="flex items-start gap-2 pl-2 my-1 text-slate-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
+                    <div className="leading-relaxed text-xs sm:text-sm">
+                      {renderInlineFormatting(bulletText)}
+                    </div>
+                  </div>
+                );
+              }
+
+              // 7. Regular paragraph line - ensure any stray hashes are stripped
+              const cleanText = line.replace(/^#{1,6}\s*/, '').replace(/\s*#{1,6}$/, '');
               return (
-                <div key={pIdx} className="space-y-1.5">
-                  {lines.map((line, lIdx) => {
-                    // Numbered list
-                    if (/^\d+\.\s/.test(line)) {
-                      const numMatch = line.match(/^(\d+)\.\s*(.*)/);
-                      return (
-                        <div key={lIdx} className="flex items-start gap-2.5 pl-1.5 my-1">
-                          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-indigo-600/25 text-indigo-300 border border-indigo-500/40 text-3xs sm:text-2xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5">
-                            {numMatch[1]}
-                          </span>
-                          <div className="text-slate-300 leading-relaxed text-xs sm:text-sm">
-                            {renderInlineFormatting(numMatch[2])}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Bullet item
-                    if (line.startsWith('- ') || line.startsWith('* ')) {
-                      return (
-                        <div key={lIdx} className="flex items-start gap-2 pl-2 my-1 text-slate-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
-                          <div className="leading-relaxed text-xs sm:text-sm">
-                            {renderInlineFormatting(line.replace(/^[-*]\s+/, ''))}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Regular paragraph text line
-                    return (
-                      <p key={lIdx} className="text-slate-300 leading-relaxed text-xs sm:text-sm">
-                        {renderInlineFormatting(line)}
-                      </p>
-                    );
-                  })}
-                </div>
+                <p key={lIdx} className="text-slate-300 leading-relaxed text-xs sm:text-sm">
+                  {renderInlineFormatting(cleanText)}
+                </p>
               );
             })}
           </div>

@@ -6,6 +6,7 @@ import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { StructuredContentRenderer, stripMarkdownHashes } from '../../components/common/StructuredContentRenderer';
 import {
   FileText,
   Search,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   RotateCcw,
   ExternalLink,
+  Download,
   ChevronRight
 } from 'lucide-react';
 
@@ -283,30 +285,53 @@ export function StudentDocumentsPage() {
                           key={idx}
                           className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-3xs font-medium text-indigo-300"
                         >
-                          #{concept}
+                          {concept}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/* Text Preview */}
+                  {/* Text Preview - Cleaned without any '#' markers */}
                   <p className="text-xs text-slate-300 line-clamp-3 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-slate-850">
-                    {previewText.replace(/[#*`_]/g, '')}
+                    {stripMarkdownHashes(previewText)}
                   </p>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                  <span className="text-3xs text-slate-400 font-mono">
-                    By {doc.teacher_name || currentTeacherObj?.full_name || 'Faculty Educator'}
-                  </span>
+                {/* Footer Actions: File Access & Reader */}
+                <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
+                  <div className="flex items-center justify-between text-3xs text-slate-400 font-mono">
+                    <span>By {doc.teacher_name || currentTeacherObj?.full_name || 'Faculty Educator'}</span>
+                    <span className="truncate max-w-[140px]">{doc.file_name}</span>
+                  </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={doc.file_url || `/api/documents/${doc.job_id}/file`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+                        title="View original physical file in browser"
+                      >
+                        <ExternalLink className="w-3 h-3 text-indigo-400" />
+                        <span>View File</span>
+                      </a>
+                      <a
+                        href={doc.download_url || `/api/documents/${doc.job_id}/download`}
+                        download={doc.file_name}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                        title="Download original file"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+
                     <Button
                       variant="primary"
                       size="sm"
                       icon={Eye}
                       onClick={() => setActiveDoc(doc)}
+                      className="text-xs"
                     >
                       Read Study Guide
                     </Button>
@@ -327,7 +352,7 @@ export function StudentDocumentsPage() {
           maxWidth="max-w-3xl"
         >
           <div className="space-y-5">
-            {/* Metadata Bar */}
+            {/* Metadata Bar with File View & Download actions */}
             <div className="p-3 rounded-xl bg-slate-950 border border-slate-850 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-4 h-4 text-indigo-400" />
@@ -336,27 +361,51 @@ export function StudentDocumentsPage() {
                 </span>
               </div>
 
-              {/* TTS Listen Action */}
-              <button
-                onClick={() => handleToggleTTS(activeDoc.extracted_markdown || activeDoc.markdown_preview || '')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isReading
-                    ? 'bg-rose-600 text-white shadow-lg animate-pulse'
-                    : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
-                }`}
-              >
-                {isReading ? (
-                  <>
-                    <VolumeX className="w-3.5 h-3.5" />
-                    <span>Stop Reading</span>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Listen Aloud (TTS)</span>
-                  </>
-                )}
-              </button>
+              {/* Action Toolbar */}
+              <div className="flex items-center gap-2">
+                <a
+                  href={activeDoc.file_url || `/api/documents/${activeDoc.job_id}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                  title="Open original uploaded file directly"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>View Original File</span>
+                </a>
+
+                <a
+                  href={activeDoc.download_url || `/api/documents/${activeDoc.job_id}/download`}
+                  download={activeDoc.file_name}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                  title="Download source document"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Download</span>
+                </a>
+
+                {/* TTS Listen Action */}
+                <button
+                  onClick={() => handleToggleTTS(activeDoc.extracted_markdown || activeDoc.markdown_preview || '')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isReading
+                      ? 'bg-rose-600 text-white shadow-lg animate-pulse'
+                      : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
+                  }`}
+                >
+                  {isReading ? (
+                    <>
+                      <VolumeX className="w-3.5 h-3.5" />
+                      <span>Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>Listen Aloud (TTS)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Concepts Detected */}
@@ -377,23 +426,35 @@ export function StudentDocumentsPage() {
               </div>
             )}
 
-            {/* Document Content Viewport */}
+            {/* Document Content Viewport: Rendered cleanly via StructuredContentRenderer (zero '#' marks) */}
             <div
               tabIndex="0"
               aria-label="Study document content reading viewport"
-              className="p-5 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 whitespace-pre-line"
+              className="p-5 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
-              {activeDoc.extracted_markdown || activeDoc.markdown_preview || 'No text extracted for this document.'}
+              <StructuredContentRenderer
+                rawContent={stripMarkdownHashes(activeDoc.extracted_markdown || activeDoc.markdown_preview || 'No text extracted for this document.')}
+              />
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-between items-center pt-3 border-t border-slate-800">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-800">
               <span className="text-3xs text-slate-400">
-                Source File: {activeDoc.file_name} • Full accessible typography active
+                Source File: <strong className="text-slate-200 font-mono">{activeDoc.file_name}</strong> • Full accessible typography active
               </span>
-              <Button variant="outline" size="sm" onClick={handleCloseModal}>
-                Done Reading
-              </Button>
+              <div className="flex items-center gap-3">
+                <a
+                  href={activeDoc.file_url || `/api/documents/${activeDoc.job_id}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-2"
+                >
+                  Open Original Document ↗
+                </a>
+                <Button variant="outline" size="sm" onClick={handleCloseModal}>
+                  Done Reading
+                </Button>
+              </div>
             </div>
           </div>
         </Modal>

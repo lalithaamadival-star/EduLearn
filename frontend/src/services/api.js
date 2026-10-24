@@ -519,6 +519,11 @@ export const api = {
               ? rawConcepts.map(c => typeof c === 'object' && c !== null ? (c.term || c.name || c.title || c.definition || '') : String(c)).filter(Boolean)
               : ['Curriculum Material'];
 
+            const cleanPreview = (text) => {
+              if (!text) return 'Curriculum study notes verified for accessible learning.';
+              return text.replace(/#{1,6}\s*/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/\s+/g, ' ').trim();
+            };
+
             return {
               id: job.id,
               job_id: job.job_id,
@@ -529,7 +534,11 @@ export const api = {
               is_shared_with_students: job.is_shared_with_students !== false,
               teacher_notes: job.teacher_notes || '',
               extracted_markdown: markdown,
-              markdown_preview: (markdown || 'Document uploaded to educator workspace.').slice(0, 300) + '...',
+              markdown_preview: (cleanPreview(markdown).slice(0, 260) + '...'),
+              file_url: job.file_url || struct.file_url || `/api/documents/${job.job_id}/file`,
+              download_url: job.download_url || struct.download_url || `/api/documents/${job.job_id}/download`,
+              file_size: job.file_size || struct.file_size || null,
+              mime_type: job.mime_type || struct.mime_type || null,
               concepts_detected: cleanConcepts,
               uploaded_at: job.uploaded_at
             };
@@ -539,6 +548,14 @@ export const api = {
         console.error("Supabase direct getDocumentJobs fallback error:", dbErr);
       }
     }
+
+    // Attach file links and clean preview for remote list items too
+    list = (Array.isArray(list) ? list : []).map(d => ({
+      ...d,
+      file_url: d.file_url || `/api/documents/${d.job_id}/file`,
+      download_url: d.download_url || `/api/documents/${d.job_id}/download`,
+      markdown_preview: (d.markdown_preview || d.extracted_markdown || '').replace(/#{1,6}\s*/g, '').replace(/\s+/g, ' ').trim().slice(0, 260) + '...'
+    }));
 
     // Strictly ensure no other teacher's documents leak into this teacher's view
     if (effectiveTeacherId) {
@@ -601,6 +618,11 @@ export const api = {
                   }).filter(Boolean)
                 : ['Curriculum Study Guide'];
 
+              const cleanPreview = (text) => {
+                if (!text) return 'Pedagogical study notes reviewed and verified for accessible multi-sensory learning.';
+                return text.replace(/#{1,6}\s*/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/\s+/g, ' ').trim();
+              };
+
               return {
                 id: job.id,
                 job_id: job.job_id,
@@ -611,7 +633,11 @@ export const api = {
                 is_shared_with_students: job.is_shared_with_students !== false,
                 teacher_notes: job.teacher_notes || '',
                 extracted_markdown: markdown,
-                markdown_preview: (markdown || 'Pedagogical study notes reviewed and verified for accessible multi-sensory learning.').slice(0, 300) + '...',
+                markdown_preview: (cleanPreview(markdown).slice(0, 260) + '...'),
+                file_url: job.file_url || struct.file_url || `/api/documents/${job.job_id}/file`,
+                download_url: job.download_url || struct.download_url || `/api/documents/${job.job_id}/download`,
+                file_size: job.file_size || struct.file_size || null,
+                mime_type: job.mime_type || struct.mime_type || null,
                 concepts_detected: cleanConcepts,
                 uploaded_at: job.uploaded_at
               };
@@ -622,9 +648,12 @@ export const api = {
       }
     }
 
-    // Guarantee concepts_detected is always an array of strings in final output
+    // Guarantee concepts_detected is always clean array and attach file links
     result = (Array.isArray(result) ? result : []).map(d => ({
       ...d,
+      file_url: d.file_url || `/api/documents/${d.job_id}/file`,
+      download_url: d.download_url || `/api/documents/${d.job_id}/download`,
+      markdown_preview: (d.markdown_preview || d.extracted_markdown || '').replace(/#{1,6}\s*/g, '').replace(/\s+/g, ' ').trim().slice(0, 260) + '...',
       concepts_detected: Array.isArray(d.concepts_detected)
         ? d.concepts_detected.map(c => typeof c === 'object' && c !== null ? (c.term || c.name || c.title || c.definition || '') : String(c)).filter(Boolean)
         : ['Curriculum Study Guide']

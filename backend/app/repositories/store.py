@@ -1,3 +1,4 @@
+import re
 import uuid
 import json
 import psycopg2
@@ -6,6 +7,15 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from app.core.config import settings
 from app.core.logging import logger
+
+def _clean_markdown_preview(raw_md: str) -> str:
+    """Strips all leading hashes (#, ##, ###) and bold stars for clean preview text."""
+    if not raw_md:
+        return "Curriculum study notes verified for accessible multi-sensory learning."
+    cleaned = re.sub(r'#{1,6}\s*', '', raw_md)
+    cleaned = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return (cleaned[:280] + "...") if len(cleaned) > 280 else cleaned
 
 class LiveSupabaseDataStore:
     """
@@ -105,9 +115,14 @@ class LiveSupabaseDataStore:
                     job['title'] = struct.get('title') or job.get('file_name', 'Study Document')
                 if not job.get('extracted_markdown') and isinstance(acc_out, dict):
                     job['extracted_markdown'] = acc_out.get('markdown_content') or ''
-                if not job.get('markdown_preview'):
-                    md = job.get('extracted_markdown') or ''
-                    job['markdown_preview'] = (md[:280] + '...') if len(md) > 280 else md
+                
+                raw_md = job.get('extracted_markdown') or ''
+                job['markdown_preview'] = _clean_markdown_preview(raw_md)
+                job['file_url'] = struct.get('file_url') or job.get('file_url') or f"/api/documents/{jid}/file"
+                job['download_url'] = struct.get('download_url') or job.get('download_url') or f"/api/documents/{jid}/download"
+                job['file_size'] = struct.get('file_size') or job.get('file_size')
+                job['mime_type'] = struct.get('mime_type') or job.get('mime_type')
+
                 if not job.get('concepts_detected'):
                     raw_concepts = struct.get('key_concepts') or []
                     job['concepts_detected'] = [
@@ -181,9 +196,14 @@ class LiveSupabaseDataStore:
                     job['title'] = struct.get('title') or job.get('file_name', 'Study Document')
                 if not job.get('extracted_markdown') and isinstance(acc_out, dict):
                     job['extracted_markdown'] = acc_out.get('markdown_content') or ''
-                if not job.get('markdown_preview'):
-                    md = job.get('extracted_markdown') or ''
-                    job['markdown_preview'] = (md[:280] + '...') if len(md) > 280 else md
+                
+                raw_md = job.get('extracted_markdown') or ''
+                job['markdown_preview'] = _clean_markdown_preview(raw_md)
+                job['file_url'] = struct.get('file_url') or job.get('file_url') or f"/api/documents/{jid}/file"
+                job['download_url'] = struct.get('download_url') or job.get('download_url') or f"/api/documents/{jid}/download"
+                job['file_size'] = struct.get('file_size') or job.get('file_size')
+                job['mime_type'] = struct.get('mime_type') or job.get('mime_type')
+
                 if not job.get('concepts_detected'):
                     raw_concepts = struct.get('key_concepts') or []
                     job['concepts_detected'] = [
@@ -356,6 +376,20 @@ class LiveSupabaseDataStore:
         accessible_out = job_dict.get("accessible_output") or {}
         if isinstance(accessible_out, dict) and job_dict.get("extracted_markdown"):
             accessible_out["markdown_content"] = job_dict.get("extracted_markdown")
+
+        struct = job_dict.get("extracted_structure") or {}
+        if not isinstance(struct, dict):
+            struct = {}
+        if "file_url" not in struct:
+            struct["file_url"] = job_dict.get("file_url") or f"/api/documents/{job_id}/file"
+            struct["download_url"] = job_dict.get("download_url") or f"/api/documents/{job_id}/download"
+        if "file_size" in job_dict and "file_size" not in struct:
+            struct["file_size"] = job_dict["file_size"]
+        if "mime_type" in job_dict and "mime_type" not in struct:
+            struct["mime_type"] = job_dict["mime_type"]
+        if "file_path" in job_dict and "file_path" not in struct:
+            struct["file_path"] = job_dict["file_path"]
+        job_dict["extracted_structure"] = struct
 
         try:
             conn = self._get_connection()
