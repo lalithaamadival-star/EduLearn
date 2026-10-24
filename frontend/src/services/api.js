@@ -406,8 +406,8 @@ export const api = {
   async getTeachers() {
     const knownTeachers = [
       { id: '6d26e4ef-d9d2-4bfb-8aef-a7a6b0f6eef7', full_name: 'ABC', email: 'abc@gmail.com', organization: 'Department of Computer Science & Engineering', courses_count: 2 },
-      { id: '59a50a3f-19d9-43ef-8fde-86c2b465cfeb', full_name: 'priya', email: 'priya@gmail.com', organization: 'Department of Inclusive Computing', courses_count: 1 },
-      { id: '0b5e793e-9f71-476f-81f1-7e36fb8992af', full_name: 'MADHU', email: 'madhu@gmail.com', organization: 'Department of Inclusive Computing', courses_count: 0 }
+      { id: '59a50a3f-19d9-43ef-8fde-86c2b465cfeb', full_name: 'Priya Sharma', email: 'priya@gmail.com', organization: 'Department of Inclusive Computing & Cognitive Accessibility', courses_count: 1 },
+      { id: '7b14d23e-8f92-41eb-92c1-6e47cb7891fa', full_name: 'Rajesh Kumar', email: 'rajesh@gmail.com', organization: 'Department of Artificial Intelligence & Data Systems', courses_count: 1 }
     ];
 
     try {

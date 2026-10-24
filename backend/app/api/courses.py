@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from app.models.schemas import CourseCreate
 from app.repositories.store import data_store
 from app.core.security import get_current_user, require_role
