@@ -42,6 +42,7 @@ async def get_student_dashboard(
     """
     student_id = str(user["id"])
     data_store.sync_profiles()
+    data_store.sync_document_jobs()
 
     current_profile = data_store.profiles.get(student_id, user)
 

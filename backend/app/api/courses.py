@@ -34,9 +34,14 @@ async def list_courses(
     teacher_id: Optional[str] = None,
     user: Dict[str, Any] = Depends(get_current_user)
 ):
+    role = (user.get("role") or "").strip().upper()
+    effective_tid = teacher_id
+    if role == "TEACHER" and not teacher_id:
+        effective_tid = str(user["id"])
+
     courses = [enrich_course_with_teacher(c) for c in data_store.courses.values()]
-    if teacher_id:
-        courses = [c for c in courses if str(c.get("teacher_id")) == str(teacher_id)]
+    if effective_tid and effective_tid != "ALL":
+        courses = [c for c in courses if str(c.get("teacher_id")) == str(effective_tid)]
     return courses
 
 @router.get("/{course_id}")

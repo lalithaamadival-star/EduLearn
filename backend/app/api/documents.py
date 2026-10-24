@@ -80,6 +80,7 @@ async def list_documents(
     - Students see study documents uploaded by their active selected educator.
     """
     data_store.sync_profiles()
+    data_store.sync_document_jobs()
     role = (user.get("role") or "").strip().upper()
     docs = list(data_store.document_jobs.values())
 
@@ -108,8 +109,7 @@ async def list_documents(
         enriched_docs.append(doc_copy)
 
     if role == "TEACHER":
-        t_docs = [d for d in enriched_docs if str(d.get("teacher_id")) == str(user["id"])]
-        return t_docs if t_docs else enriched_docs
+        return [d for d in enriched_docs if str(d.get("teacher_id")) == str(user["id"])]
     else:
         # Student viewing study documents
         current_profile = data_store.profiles.get(str(user["id"]), user)
@@ -121,6 +121,8 @@ async def list_documents(
 
 @router.get("/{job_id}")
 async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    if job_id not in data_store.document_jobs:
+        data_store.sync_document_jobs()
     if job_id not in data_store.document_jobs:
         raise HTTPException(status_code=404, detail="Document processing job not found")
     job = dict(data_store.document_jobs[job_id])
@@ -147,6 +149,8 @@ async def get_document_job(job_id: str, user: Dict[str, Any] = Depends(get_curre
 @router.get("/{job_id}/status")
 async def get_job_status(job_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     if job_id not in data_store.document_jobs:
+        data_store.sync_document_jobs()
+    if job_id not in data_store.document_jobs:
         raise HTTPException(status_code=404, detail="Document processing job not found")
     job = data_store.document_jobs[job_id]
     return {
@@ -162,6 +166,8 @@ async def review_document(
     update: DocumentReviewUpdateRequest,
     user: Dict[str, Any] = Depends(require_role("TEACHER"))
 ):
+    if job_id not in data_store.document_jobs:
+        data_store.sync_document_jobs()
     if job_id not in data_store.document_jobs:
         raise HTTPException(status_code=404, detail="Document processing job not found")
     

@@ -44,6 +44,7 @@ def get_real_students() -> List[Dict[str, Any]]:
             )
             completion_rate = round((completed_count / total_lessons * 100), 1) if total_lessons > 0 else 0
 
+            selected_tid = p.get("selected_teacher_id") or p.get("assigned_teacher_id")
             students.append({
                 "id": s_id,
                 "full_name": p.get("full_name") or "Registered Student",
@@ -51,7 +52,8 @@ def get_real_students() -> List[Dict[str, Any]]:
                 "organization": p.get("organization") or "AccessEd Cohort",
                 "preferred_mode": mode,
                 "completion_rate": completion_rate,
-                "created_at": p.get("created_at")
+                "created_at": p.get("created_at"),
+                "selected_teacher_id": str(selected_tid) if selected_tid else None
             })
 
     return students
@@ -62,15 +64,19 @@ async def get_teacher_dashboard(user: Dict[str, Any] = Depends(require_role("TEA
     Real educator operational dashboard.
     Driven 100% by live registered student telemetry and live database content.
     """
-    real_students = get_real_students()
-    courses = list(data_store.courses.values())
-    pending_documents = [d for d in data_store.document_jobs.values() if d.get("status") in ("QUEUED", "PROCESSING", "NEEDS_REVIEW")]
-    recent_submissions = [a for a in data_store.assignments if a.get("status") in ("SUBMITTED", "GRADED")]
-
     teacher_id = str(user["id"])
+    all_students = get_real_students()
+    real_students = [s for s in all_students if str(s.get("selected_teacher_id")) == teacher_id]
+
+    courses = [c for c in data_store.courses.values() if str(c.get("teacher_id")) == teacher_id]
+    pending_documents = [d for d in data_store.document_jobs.values() if str(d.get("teacher_id")) == teacher_id and d.get("status") in ("QUEUED", "PROCESSING", "NEEDS_REVIEW")]
+    recent_submissions = [a for a in data_store.assignments if str(a.get("teacher_id")) == teacher_id and a.get("status") in ("SUBMITTED", "GRADED")]
+    if not recent_submissions:
+        # Also check assignments associated with teacher's courses
+        teacher_course_ids = [str(c["id"]) for c in courses]
+        recent_submissions = [a for a in data_store.assignments if str(a.get("course_id")) in teacher_course_ids and a.get("status") in ("SUBMITTED", "GRADED")]
+
     teacher_classes = [c for c in data_store.classes if str(c.get("teacher_id")) == teacher_id]
-    if not teacher_classes:
-        teacher_classes = data_store.classes
 
     if not teacher_classes:
         default_cls = data_store.save_class({
@@ -134,12 +140,11 @@ async def get_teacher_dashboard(user: Dict[str, Any] = Depends(require_role("TEA
 @router.get("/classes")
 async def get_classes(user: Dict[str, Any] = Depends(require_role("TEACHER"))):
     """Returns real class cohorts with the actual registered students."""
-    real_students = get_real_students()
     teacher_id = str(user["id"])
+    all_students = get_real_students()
+    real_students = [s for s in all_students if str(s.get("selected_teacher_id")) == teacher_id]
 
     teacher_classes = [c for c in data_store.classes if str(c.get("teacher_id")) == teacher_id]
-    if not teacher_classes:
-        teacher_classes = data_store.classes
 
     if not teacher_classes:
         default_cls = data_store.save_class({
@@ -165,14 +170,16 @@ async def get_classes(user: Dict[str, Any] = Depends(require_role("TEACHER"))):
 @router.post("/classes")
 async def create_class(req: ClassCreateRequest, user: Dict[str, Any] = Depends(require_role("TEACHER"))):
     """Allows educators to create and persist real class cohorts."""
+    teacher_id = str(user["id"])
     code = req.code or f"CS-{uuid.uuid4().hex[:4].upper()}"
     new_class = data_store.save_class({
-        "teacher_id": str(user["id"]),
+        "teacher_id": teacher_id,
         "title": req.title,
         "code": code,
         "academic_term": req.academic_term or "Fall 2026"
     })
-    real_students = get_real_students()
+    all_students = get_real_students()
+    real_students = [s for s in all_students if str(s.get("selected_teacher_id")) == teacher_id]
     return {
         **new_class,
         "enrolled_students": real_students
@@ -180,8 +187,10 @@ async def create_class(req: ClassCreateRequest, user: Dict[str, Any] = Depends(r
 
 @router.get("/students")
 async def get_all_registered_students(user: Dict[str, Any] = Depends(require_role("TEACHER"))):
-    """Direct query endpoint for educators to inspect all registered students."""
-    return get_real_students()
+    """Direct query endpoint for educators to inspect their assigned students."""
+    teacher_id = str(user["id"])
+    all_students = get_real_students()
+    return [s for s in all_students if str(s.get("selected_teacher_id")) == teacher_id]
 
 @router.get("/list")
 async def list_available_educators():

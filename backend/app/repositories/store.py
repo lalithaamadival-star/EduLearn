@@ -164,6 +164,38 @@ class LiveSupabaseDataStore:
         except Exception as e:
             logger.warning(f"Failed to sync profiles from Supabase: {e}")
 
+    def sync_document_jobs(self):
+        """Synchronizes document jobs from Supabase to reflect new uploads and status changes."""
+        if not self.db_url:
+            return
+        try:
+            conn = self._get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM public.document_jobs ORDER BY uploaded_at DESC;")
+            raw_jobs = [self._serialize_row(r) for r in cur.fetchall()]
+            for job in raw_jobs:
+                jid = str(job['job_id'])
+                struct = job.get('extracted_structure') or {}
+                acc_out = job.get('accessible_output') or {}
+                if not job.get('title'):
+                    job['title'] = struct.get('title') or job.get('file_name', 'Study Document')
+                if not job.get('extracted_markdown') and isinstance(acc_out, dict):
+                    job['extracted_markdown'] = acc_out.get('markdown_content') or ''
+                if not job.get('markdown_preview'):
+                    md = job.get('extracted_markdown') or ''
+                    job['markdown_preview'] = (md[:280] + '...') if len(md) > 280 else md
+                if not job.get('concepts_detected'):
+                    raw_concepts = struct.get('key_concepts') or []
+                    job['concepts_detected'] = [
+                        c.get('term', '') if isinstance(c, dict) else str(c)
+                        for c in raw_concepts if c
+                    ]
+                self.document_jobs[jid] = job
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Failed to sync document jobs from Supabase: {e}")
+
     # --------------------------------------------------------------------------
     # Live Mutation Methods (Persist directly to Supabase)
     # --------------------------------------------------------------------------
