@@ -524,6 +524,17 @@ export const api = {
               const fileName = job.file_name || 'Study Document';
               const title = struct.title || fileName.replace(/\.[^/.]+$/, "");
 
+              const rawConcepts = struct.key_concepts || ['Curriculum Study Guide', 'Inclusive Computing'];
+              const cleanConcepts = Array.isArray(rawConcepts)
+                ? rawConcepts.map(c => {
+                    if (typeof c === 'string') return c;
+                    if (typeof c === 'object' && c !== null) {
+                      return c.term || c.name || c.title || c.definition || '';
+                    }
+                    return String(c);
+                  }).filter(Boolean)
+                : ['Curriculum Study Guide'];
+
               return {
                 id: job.id,
                 job_id: job.job_id,
@@ -535,7 +546,7 @@ export const api = {
                 teacher_notes: job.teacher_notes || '',
                 extracted_markdown: markdown,
                 markdown_preview: (markdown || 'Pedagogical study notes reviewed and verified for accessible multi-sensory learning.').slice(0, 300) + '...',
-                concepts_detected: struct.key_concepts || ['Curriculum Study Guide', 'Inclusive Computing'],
+                concepts_detected: cleanConcepts,
                 uploaded_at: job.uploaded_at
               };
             });
@@ -545,7 +556,15 @@ export const api = {
       }
     }
 
-    if (teacherId && teacherId !== 'ALL' && Array.isArray(result)) {
+    // Guarantee concepts_detected is always an array of strings in final output
+    result = (Array.isArray(result) ? result : []).map(d => ({
+      ...d,
+      concepts_detected: Array.isArray(d.concepts_detected)
+        ? d.concepts_detected.map(c => typeof c === 'object' && c !== null ? (c.term || c.name || c.title || c.definition || '') : String(c)).filter(Boolean)
+        : ['Curriculum Study Guide']
+    }));
+
+    if (teacherId && teacherId !== 'ALL') {
       return result.filter(d => String(d.teacher_id) === String(teacherId));
     }
     return result;
