@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AccessibilityProvider } from './features/accessibility/AccessibilityContext';
 import { AuditoryOrientationProvider } from './features/accessibility/AuditoryOrientationContext';
 import { AuthProvider } from './features/auth/AuthContext';
+import { ToastProvider } from './components/common/ToastContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Layouts
@@ -55,8 +56,9 @@ export default function App() {
     <AccessibilityProvider>
       <AuditoryOrientationProvider>
         <AuthProvider>
-          <ErrorBoundary>
-            <BrowserRouter>
+          <ToastProvider>
+            <ErrorBoundary>
+              <BrowserRouter>
               <Routes>
                 {/* Public Experience */}
                 <Route path="/" element={<PublicLayout />}>
@@ -141,8 +143,9 @@ export default function App() {
               </Routes>
             </BrowserRouter>
           </ErrorBoundary>
-        </AuthProvider>
-      </AuditoryOrientationProvider>
-    </AccessibilityProvider>
+        </ToastProvider>
+      </AuthProvider>
+    </AuditoryOrientationProvider>
+  </AccessibilityProvider>
   );
 }

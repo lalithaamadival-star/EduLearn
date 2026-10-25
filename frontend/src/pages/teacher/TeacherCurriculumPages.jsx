@@ -24,6 +24,7 @@ import {
   Copy
 } from 'lucide-react';
 import { StructuredContentRenderer, cleanSpokenText } from '../../components/common/StructuredContentRenderer';
+import { useToast } from '../../components/common/ToastContext';
 
 export function TeacherCoursesPage() {
   const { user } = useAuth();
@@ -109,8 +110,9 @@ export function TeacherCoursesPage() {
 
 export function TeacherAIAssistantPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { announce, updateOrientation } = useAuditoryOrientation();
-  const [activeTab, setActiveTab] = useState('quiz'); // 'quiz' or 'general'
+  const [activeTab, setActiveTab] = useState('quiz'); // 'quiz', 'assignment', or 'general'
   const [courses, setCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [selectedLessonId, setSelectedLessonId] = useState('');
@@ -127,6 +129,15 @@ export function TeacherAIAssistantPage() {
   const [generatedQuiz, setGeneratedQuiz] = useState(null);
   const [pushingQuiz, setPushingQuiz] = useState(false);
   const [pushedQuizId, setPushedQuizId] = useState(null);
+
+  // AI Assignment generator state
+  const [asgTopic, setAsgTopic] = useState('Python Dictionary Comprehensions & In-Memory Indexing');
+  const [asgDifficulty, setAsgDifficulty] = useState('Intermediate');
+  const [asgNotes, setAsgNotes] = useState('');
+  const [asgLoading, setAsgLoading] = useState(false);
+  const [generatedAsg, setGeneratedAsg] = useState(null);
+  const [pushingAsg, setPushingAsg] = useState(false);
+  const [pushedAsgId, setPushedAsgId] = useState(null);
 
   useEffect(() => {
     updateOrientation({
@@ -319,11 +330,85 @@ Respond ONLY with a valid JSON object without markdown fences, matching this exa
 
       const saved = await api.createQuiz(payload);
       setPushedQuizId(saved.id);
+      toast.success(`Quiz "${generatedQuiz.title}" successfully published to course section!`);
       announce(`Quiz successfully saved and pushed to course quiz section! Students can now access this quiz.`, "assertive");
     } catch (err) {
+      toast.error(`Failed to push quiz: ${err.message}`);
       announce(`Failed to push quiz: ${err.message}`, "assertive");
     } finally {
       setPushingQuiz(false);
+    }
+  };
+
+  // AI Assignment Generation Handler
+  const handleGenerateAIAssignment = async (e) => {
+    e.preventDefault();
+    if (!asgTopic.trim()) return;
+
+    setAsgLoading(true);
+    setPushedAsgId(null);
+    announce("AI generating inclusive technical problem set draft.", "polite");
+
+    try {
+      const selectedCourse = courses.find(c => String(c.id) === String(selectedCourseId));
+      const courseTitle = selectedCourse ? selectedCourse.title : 'Curriculum Course';
+      const draft = await api.aiGenerateAssignment({
+        topic: asgTopic.trim(),
+        course_title: courseTitle,
+        difficulty: asgDifficulty,
+        additional_notes: asgNotes.trim() || null
+      });
+
+      const d = new Date();
+      d.setDate(d.getDate() + (draft.suggested_due_days || 7));
+      const formattedDue = d.toISOString().split('T')[0];
+
+      setGeneratedAsg({
+        title: draft.title || `Problem Set: ${asgTopic}`,
+        instructions: draft.instructions || '',
+        max_score: draft.max_score || 100,
+        due_date: formattedDue
+      });
+
+      toast.info("AI assignment draft generated! Review details below and publish.");
+      announce(`Assignment draft generated: ${draft.title}. Ready for educator review.`, "polite", true);
+    } catch (err) {
+      toast.error(`Failed to generate assignment: ${err.message}`);
+      announce("Failed to generate assignment draft.", "assertive");
+    } finally {
+      setAsgLoading(false);
+    }
+  };
+
+  // Push Assignment Directly to Supabase & Deliver to Students
+  const handlePushAssignmentToStudents = async () => {
+    if (!generatedAsg) return;
+    if (!selectedCourseId) {
+      toast.error("Please select a target course for the assignment.");
+      return;
+    }
+
+    setPushingAsg(true);
+    announce("Publishing assignment to enrolled students.", "polite");
+
+    try {
+      const payload = {
+        course_id: selectedCourseId,
+        title: generatedAsg.title,
+        instructions: generatedAsg.instructions,
+        due_date: generatedAsg.due_date ? new Date(generatedAsg.due_date).toISOString() : null,
+        max_score: Number(generatedAsg.max_score) || 100
+      };
+
+      const saved = await api.createAssignment(payload);
+      setPushedAsgId(saved.id);
+      toast.success(`Assignment "${saved.title}" successfully assigned to students!`);
+      announce(`Assignment successfully published to course!`, "assertive");
+    } catch (err) {
+      toast.error(`Failed to publish assignment: ${err.message}`);
+      announce(`Failed to publish assignment: ${err.message}`, "assertive");
+    } finally {
+      setPushingAsg(false);
     }
   };
 
@@ -367,6 +452,20 @@ Respond ONLY with a valid JSON object without markdown fences, matching this exa
         >
           <Sparkles className="w-4 h-4 text-amber-400" />
           <span>AI Quiz Generator & Publisher</span>
+        </button>
+
+        <button
+          role="tab"
+          aria-selected={activeTab === 'assignment'}
+          onClick={() => setActiveTab('assignment')}
+          className={`pb-3 text-xs font-bold transition-colors border-b-2 flex items-center gap-2 ${
+            activeTab === 'assignment'
+              ? 'border-amber-400 text-amber-300'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <FileCode className="w-4 h-4 text-amber-400" />
+          <span>AI Assignment Generator & Publisher</span>
         </button>
 
         <button
@@ -609,7 +708,231 @@ Respond ONLY with a valid JSON object without markdown fences, matching this exa
         </div>
       )}
 
-      {/* TAB 2: General Lesson Outlines & Analogies */}
+      {/* TAB 2: AI Assignment Generator & Direct Publish */}
+      {activeTab === 'assignment' && (
+        <div className="space-y-6">
+          <form onSubmit={handleGenerateAIAssignment} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Configure AI Coursework Problem Set
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="asg-target-course" className="block text-xs font-semibold text-slate-200">
+                  Target Course
+                </label>
+                <select
+                  id="asg-target-course"
+                  value={selectedCourseId}
+                  onChange={(e) => handleCourseChange(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="asg-difficulty" className="block text-xs font-semibold text-slate-200">
+                  Target Difficulty Level
+                </label>
+                <select
+                  id="asg-difficulty"
+                  value={asgDifficulty}
+                  onChange={(e) => setAsgDifficulty(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-950 border border-slate-700 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                >
+                  <option value="Beginner">Beginner / Introductory</option>
+                  <option value="Intermediate">Intermediate / Applied Engineering</option>
+                  <option value="Advanced">Advanced / Systems & Theory</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="asg-topic-input" className="block text-xs font-semibold text-slate-200">
+                Assignment Concept / Problem Set Focus
+              </label>
+              <input
+                id="asg-topic-input"
+                type="text"
+                value={asgTopic}
+                onChange={(e) => setAsgTopic(e.target.value)}
+                placeholder="e.g. Implement Binary Search Trees with In-Order Traversal & Time Complexity Analysis"
+                className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-xs focus-visible:ring-2 focus-visible:ring-amber-400"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="asg-notes-input" className="block text-xs font-semibold text-slate-200">
+                Teacher Notes / Custom Rubric Constraints (Optional)
+              </label>
+              <textarea
+                id="asg-notes-input"
+                rows={2}
+                value={asgNotes}
+                onChange={(e) => setAsgNotes(e.target.value)}
+                placeholder="e.g. Include starter unit tests, forbid using external libraries, require time complexity proof..."
+                className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-xs focus-visible:ring-2 focus-visible:ring-amber-400"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span>Quick Topics:</span>
+                <button
+                  type="button"
+                  onClick={() => setAsgTopic('In-Place Pointer Mutation & Memory References')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-2xs"
+                >
+                  Memory References
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAsgTopic('Accessible Keyboard Navigation & ARIA Focus Traps')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-2xs"
+                >
+                  ARIA Navigation
+                </button>
+              </div>
+
+              <Button type="submit" variant="accent" size="sm" loading={asgLoading} icon={Sparkles}>
+                Generate AI Problem Set
+              </Button>
+            </div>
+          </form>
+
+          {/* Generated Assignment Review & Direct Publish Section */}
+          {generatedAsg && (
+            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">Educator Review Gate</Badge>
+                    <span className="text-2xs font-mono text-slate-400">Ready for Live Student Publishing</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mt-1">{generatedAsg.title}</h3>
+                  <p className="text-xs text-slate-400">
+                    Review and adjust parameters before publishing coursework to students.
+                  </p>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  loading={pushingAsg}
+                  onClick={handlePushAssignmentToStudents}
+                  icon={UploadCloud}
+                  className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  Publish Coursework to Students
+                </Button>
+              </div>
+
+              {/* Success Notification */}
+              {pushedAsgId && (
+                <div role="status" className="p-4 rounded-xl bg-emerald-950/60 border border-emerald-700 text-xs text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-emerald-100">Assignment Successfully Published!</div>
+                      <div className="text-2xs text-emerald-300">All enrolled students can now view and submit solutions.</div>
+                    </div>
+                  </div>
+                  <Link to="/teacher/assignments">
+                    <Button variant="outline" size="sm" icon={ArrowRight} className="text-xs border-emerald-500 text-emerald-200">
+                      View in Assignments Console
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Editable Fields */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-2xs font-bold text-slate-300 uppercase font-mono">
+                      Assignment Title
+                    </label>
+                    <input
+                      type="text"
+                      value={generatedAsg.title}
+                      onChange={(e) => setGeneratedAsg({ ...generatedAsg, title: e.target.value })}
+                      className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-amber-400"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-2xs font-bold text-slate-300 uppercase font-mono">
+                        Max Score (Pts)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={generatedAsg.max_score}
+                        onChange={(e) => setGeneratedAsg({ ...generatedAsg, max_score: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-amber-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-2xs font-bold text-slate-300 uppercase font-mono">
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={generatedAsg.due_date}
+                        onChange={(e) => setGeneratedAsg({ ...generatedAsg, due_date: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-2xs font-bold text-slate-300 uppercase font-mono">
+                      Instructions & Problem Statement (Markdown)
+                    </label>
+                    <span className="text-3xs text-slate-400">Full multimodal markdown formatting supported</span>
+                  </div>
+                  <textarea
+                    rows={12}
+                    value={generatedAsg.instructions}
+                    onChange={(e) => setGeneratedAsg({ ...generatedAsg, instructions: e.target.value })}
+                    className="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-amber-400"
+                  />
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <span className="text-3xs font-mono font-bold text-amber-400 uppercase">Live Student Preview</span>
+                  <div className="p-4 bg-slate-900/80 rounded-lg border border-slate-850">
+                    <StructuredContentRenderer rawContent={generatedAsg.instructions} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-800">
+                <Button
+                  variant="primary"
+                  size="md"
+                  loading={pushingAsg}
+                  onClick={handlePushAssignmentToStudents}
+                  icon={UploadCloud}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  Publish Coursework to Students
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: General Lesson Outlines & Analogies */}
       {activeTab === 'general' && (
         <div className="space-y-6">
           <form onSubmit={handleGenerateGeneral} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">

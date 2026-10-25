@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any
+from pydantic import BaseModel
+from typing import Dict, Any, Optional
+import json
+import re
 from app.models.schemas import (
     AIChatRequest,
     AISimplifyRequest,
@@ -116,3 +119,81 @@ async def teacher_assist(
         provider_used=result["provider"],
         tokens_used=result.get("tokens", 0)
     )
+
+class AIAssignmentGenerateRequest(BaseModel):
+    topic: str
+    course_title: Optional[str] = None
+    difficulty: Optional[str] = "Intermediate"
+    additional_notes: Optional[str] = None
+
+@router.post("/generate-assignment")
+async def generate_assignment(
+    req: AIAssignmentGenerateRequest,
+    user: Dict[str, Any] = Depends(require_role("TEACHER"))
+):
+    """
+    Generates a structured, inclusive, pedagogical problem set/assignment for educator review.
+    Teacher can directly review, adjust parameters, and publish.
+    """
+    system_instruction = (
+        "You are an expert inclusive computer science educator on the AccessEd platform.\n"
+        "Generate a structured, accessible assignment or problem set on the requested topic.\n"
+        "Respond ONLY with a valid JSON object without markdown fences, matching this exact schema:\n"
+        "{\n"
+        '  "title": "Clear, engaging assignment title",\n'
+        '  "instructions": "Full detailed instructions formatted with clean markdown, including: 1. Overview, 2. Technical Requirements / Challenge, 3. Code Example / Starter Template, 4. Submission Instructions, 5. Grading Criteria",\n'
+        '  "suggested_due_days": 7,\n'
+        '  "max_score": 100\n'
+        "}"
+    )
+
+    user_prompt = f"Topic: {req.topic}\nCourse: {req.course_title or 'Computer Science Curriculum'}\nDifficulty: {req.difficulty}"
+    if req.additional_notes:
+        user_prompt += f"\nAdditional Teacher Requirements: {req.additional_notes}"
+
+    messages = [{"role": "user", "content": user_prompt}]
+    result = await ai_orchestrator.get_response(messages=messages, system_prompt_override=system_instruction)
+    
+    parsed = None
+    try:
+        text = result["content"].strip()
+        json_match = re.search(r"\{[\s\S]*\}", text)
+        if json_match:
+            parsed = json.loads(json_match.group(0))
+    except Exception:
+        pass
+
+    if not parsed or not parsed.get("title") or not parsed.get("instructions"):
+        topic_clean = req.topic.strip()
+        parsed = {
+            "title": f"Problem Set: {topic_clean}",
+            "instructions": (
+                f"### 🎯 Learning Objectives\n"
+                f"- Demonstrate hands-on conceptual mastery of {topic_clean}.\n"
+                f"- Apply accessible design and robust error-handling in your solution.\n\n"
+                f"### 📋 Technical Challenge\n"
+                f"Implement a well-structured Python solution addressing the core requirements of {topic_clean}.\n"
+                f"Your solution must include:\n"
+                f"1. A clean, modular function or class implementing the logic.\n"
+                f"2. Comprehensive edge-case handling.\n"
+                f"3. A concise written explanation (1-2 paragraphs) discussing your technical tradeoffs and time/space complexity.\n\n"
+                f"### 💻 Starter Template\n"
+                f"```python\n"
+                f"# AccessEd Student Submission\n"
+                f"# Topic: {topic_clean}\n\n"
+                f"def solve_problem():\n"
+                f"    # TODO: Implement your solution here\n"
+                f"    pass\n\n"
+                f"if __name__ == '__main__':\n"
+                f"    print('Validating solution...')\n"
+                f"```\n\n"
+                f"### 📊 Evaluation Rubric (100 Points Total)\n"
+                f"- **Correctness & Logic (50 pts)**: Solution accurately fulfills all requirements.\n"
+                f"- **Code Quality & Readability (30 pts)**: PEP 8 compliant, clear variable naming, type hints.\n"
+                f"- **Analysis & Tradeoffs (20 pts)**: Thorough conceptual explanation."
+            ),
+            "suggested_due_days": 7,
+            "max_score": 100
+        }
+
+    return parsed

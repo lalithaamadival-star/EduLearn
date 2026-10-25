@@ -20,11 +20,14 @@ import {
   ExternalLink,
   Search,
   Filter,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
+import { useToast } from '../../components/common/ToastContext';
 
 export function TeacherAssignmentsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { announce, updateOrientation } = useAuditoryOrientation();
 
   const [assignments, setAssignments] = useState([]);
@@ -36,6 +39,11 @@ export function TeacherAssignmentsPage() {
 
   // Create Assignment Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createMode, setCreateMode] = useState('manual'); // 'manual' | 'ai'
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiDifficulty, setAiDifficulty] = useState('Intermediate');
+  const [aiGenerating, setAiGenerating] = useState(false);
+
   const [newCourseId, setNewCourseId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newInstructions, setNewInstructions] = useState('');
@@ -83,18 +91,55 @@ export function TeacherAssignmentsPage() {
     }
   };
 
-  const handleOpenCreateModal = (preselectedCourseId = null) => {
+  const handleOpenCreateModal = (preselectedCourseId = null, mode = 'manual') => {
     if (preselectedCourseId) {
       setNewCourseId(preselectedCourseId);
     } else if (courses.length > 0) {
       setNewCourseId(courses[0].id);
     }
+    setCreateMode(mode);
+    setAiTopic('');
     setNewTitle('');
     setNewInstructions('');
     setNewDueDate('');
     setNewMaxScore(100);
     setCreateError('');
     setCreateModalOpen(true);
+  };
+
+  const handleGenerateWithAI = async () => {
+    if (!aiTopic.trim()) {
+      setCreateError('Please enter a topic or concept for the AI generator.');
+      return;
+    }
+    setAiGenerating(true);
+    setCreateError('');
+    try {
+      const selectedCourse = courses.find(c => String(c.id) === String(newCourseId));
+      const courseTitle = selectedCourse ? selectedCourse.title : 'Computer Science Curriculum';
+      const draft = await api.aiGenerateAssignment({
+        topic: aiTopic.trim(),
+        course_title: courseTitle,
+        difficulty: aiDifficulty
+      });
+
+      setNewTitle(draft.title || `Problem Set: ${aiTopic.trim()}`);
+      setNewInstructions(draft.instructions || '');
+      setNewMaxScore(draft.max_score || 100);
+
+      const d = new Date();
+      d.setDate(d.getDate() + (draft.suggested_due_days || 7));
+      setNewDueDate(d.toISOString().split('T')[0]);
+
+      setCreateMode('manual');
+      toast.info("AI generated assignment draft! Review the parameters below and assign.");
+      announce("AI drafted assignment successfully. You can now adjust parameters and assign to students.", "polite");
+    } catch (err) {
+      setCreateError(err.message || 'Failed to generate assignment with AI.');
+      toast.error('AI generation failed. Please try a different topic.');
+    } finally {
+      setAiGenerating(false);
+    }
   };
 
   const handleCreateAssignment = async (e) => {
@@ -125,10 +170,12 @@ export function TeacherAssignmentsPage() {
       const created = await api.createAssignment(payload);
       setAssignments(prev => [created, ...prev]);
       setCreateModalOpen(false);
+      toast.success(`Assignment "${created.title}" successfully assigned to students!`);
       announce(`Assignment "${created.title}" successfully assigned to students!`, 'polite');
     } catch (err) {
       console.error("Assignment creation error:", err);
       setCreateError(err.message || 'Failed to create assignment.');
+      toast.error(`Failed to create assignment: ${err.message}`);
       announce("Failed to create assignment. Please retry.", "assertive");
     } finally {
       setCreating(false);
@@ -154,9 +201,11 @@ export function TeacherAssignmentsPage() {
       });
       setAssignments(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
       setGradeModalOpen(false);
+      toast.success(`Evaluation saved: ${gradeScore}/${selectedAsgForGrading.max_score || 100} points awarded!`);
       announce(`Grade ${gradeScore}/${selectedAsgForGrading.max_score || 100} and feedback saved for student!`, 'polite');
     } catch (err) {
       console.error("Failed to submit grade:", err);
+      toast.error(`Failed to submit grade: ${err.message}`);
       announce("Failed to save grade evaluation. Please retry.", "assertive");
     } finally {
       setGrading(false);
@@ -170,9 +219,11 @@ export function TeacherAssignmentsPage() {
     try {
       await api.deleteAssignment(asgId);
       setAssignments(prev => prev.filter(a => a.id !== asgId));
+      toast.info(`Assignment "${title}" removed.`);
       announce(`Assignment "${title}" removed.`, 'polite');
     } catch (err) {
       console.error("Failed to delete assignment:", err);
+      toast.error(`Failed to delete assignment: ${err.message}`);
       announce("Failed to delete assignment.", "assertive");
     }
   };
@@ -218,15 +269,26 @@ export function TeacherAssignmentsPage() {
             </p>
           </div>
 
-          <Button
-            variant="accent"
-            size="md"
-            icon={Plus}
-            onClick={() => handleOpenCreateModal()}
-            className="shadow-lg font-bold"
-          >
-            Create & Assign Coursework
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Sparkles}
+              onClick={() => handleOpenCreateModal(null, 'ai')}
+              className="text-xs"
+            >
+              Draft with AI
+            </Button>
+            <Button
+              variant="accent"
+              size="md"
+              icon={Plus}
+              onClick={() => handleOpenCreateModal(null, 'manual')}
+              className="shadow-lg font-bold text-xs"
+            >
+              Create Manually
+            </Button>
+          </div>
         </div>
 
         {/* Metrics Grid */}
@@ -488,37 +550,144 @@ export function TeacherAssignmentsPage() {
             </div>
           )}
 
-          {/* Select Course */}
-          <div className="space-y-1.5">
-            <label className="block font-bold text-slate-200">
-              Target Curriculum Course *
-            </label>
-            <select
-              value={newCourseId}
-              onChange={(e) => setNewCourseId(e.target.value)}
-              className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+          {/* Mode Switcher */}
+          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setCreateMode('manual')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                createMode === 'manual'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
             >
-              {courses.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.title} ({c.category})
-                </option>
-              ))}
-            </select>
+              Manual Authoring
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateMode('ai')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center justify-center gap-1.5 ${
+                createMode === 'ai'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Draft with AI Co-pilot</span>
+            </button>
           </div>
 
-          {/* Assignment Title */}
-          <div className="space-y-1.5">
-            <label className="block font-bold text-slate-200">
-              Assignment Title *
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Problem Set 1: Memory Layout & Mutable Reference Aliasing"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
-            />
-          </div>
+          {createMode === 'ai' ? (
+            <div className="space-y-4 pt-1">
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-200">
+                  Target Curriculum Course *
+                </label>
+                <select
+                  value={newCourseId}
+                  onChange={(e) => setNewCourseId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} ({c.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-200">
+                  What technical topic / problem do you want to assign? *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Memory aliasing & mutable object mutation proofs in Python"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-200">
+                  Difficulty Level
+                </label>
+                <select
+                  value={aiDifficulty}
+                  onChange={(e) => setAiDifficulty(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="Beginner">Beginner / Fundamentals</option>
+                  <option value="Intermediate">Intermediate / Applied Engineering</option>
+                  <option value="Advanced">Advanced / Systems & Theory</option>
+                </select>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="flex items-center gap-2 text-2xs text-slate-400">
+                  <span>Quick:</span>
+                  <button
+                    type="button"
+                    onClick={() => setAiTopic('Object References & id() Equality')}
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                  >
+                    Memory References
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiTopic('Asymptotic Space Complexity & Recursion')}
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                  >
+                    Big-O & Recursion
+                  </button>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  loading={aiGenerating}
+                  icon={Sparkles}
+                  onClick={handleGenerateWithAI}
+                >
+                  Generate Assignment Draft
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Select Course */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-200">
+                  Target Curriculum Course *
+                </label>
+                <select
+                  value={newCourseId}
+                  onChange={(e) => setNewCourseId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} ({c.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assignment Title */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-200">
+                  Assignment Title *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Problem Set 1: Memory Layout & Mutable Reference Aliasing"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
 
           {/* Instructions */}
           <div className="space-y-1.5">
@@ -572,6 +741,8 @@ export function TeacherAssignmentsPage() {
               Publish & Assign to Students
             </Button>
           </div>
+            </>
+          )}
         </form>
       </Modal>
 

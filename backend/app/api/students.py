@@ -43,6 +43,7 @@ async def get_student_dashboard(
     student_id = str(user["id"])
     data_store.sync_profiles()
     data_store.sync_document_jobs()
+    data_store.sync_assignments()
 
     current_profile = data_store.profiles.get(student_id, user)
 
@@ -130,10 +131,17 @@ async def get_student_dashboard(
             }
 
     # 3. Real assignments scoped to this educator's curriculum
-    pending_assignments = [
-        a for a in data_store.assignments
-        if a.get("status") == "ASSIGNED" and (str(a.get("course_id")) in course_ids or not a.get("course_id"))
-    ]
+    pending_assignments = []
+    for a in data_store.assignments:
+        c_id_match = str(a.get("course_id")) in course_ids
+        t_id_match = primary_teacher and (str(a.get("teacher_id")) == str(primary_teacher["id"]))
+        if a.get("status") == "ASSIGNED" and (c_id_match or t_id_match or not a.get("course_id")):
+            item = dict(a)
+            c = data_store.courses.get(str(item.get("course_id")))
+            if c:
+                item["course_title"] = c.get("title")
+                item["course_slug"] = c.get("slug")
+            pending_assignments.append(item)
 
     # 4. Student notes and bookmarks
     student_notes = [

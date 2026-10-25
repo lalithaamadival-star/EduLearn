@@ -197,6 +197,19 @@ export const api = {
     return res.json();
   },
 
+  async aiGenerateAssignment(payload) {
+    const res = await request('/api/ai/generate-assignment', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'AI assignment generator unavailable');
+    }
+    return res.json();
+  },
+
   // Text to Speech
   async synthesizeTTS(text, language = 'en', voice_id = null) {
     const res = await request('/api/tts', {
@@ -217,10 +230,26 @@ export const api = {
   },
 
   // Accessible Quizzes
-  async listQuizzes(lessonId = null) {
-    const query = lessonId ? `?lesson_id=${lessonId}` : '';
-    const res = await request(`/api/quizzes${query}`, { headers: getAuthHeaders() });
+  async listQuizzes(lessonId = null, courseId = null) {
+    const params = new URLSearchParams();
+    if (lessonId) params.append('lesson_id', lessonId);
+    if (courseId) params.append('course_id', courseId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await request(`/api/quizzes${qs}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch quizzes');
+    return res.json();
+  },
+
+  async createQuiz(payload) {
+    const res = await request('/api/quizzes', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to create and push quiz');
+    }
     return res.json();
   },
 

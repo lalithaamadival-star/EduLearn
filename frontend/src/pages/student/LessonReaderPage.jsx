@@ -78,10 +78,8 @@ export function LessonReaderPage() {
       // Check if a quiz is associated with this lesson or course
       const matchedQuiz = allQuizzes.find(q => String(q.lesson_id) === String(lessonData.id)) ||
                           allQuizzes.find(q => String(q.lesson_id) === String(lessonData.slug)) ||
-                          (allQuizzes.length > 0 ? allQuizzes[0] : null);
-      if (matchedQuiz) {
-        setLessonQuiz(matchedQuiz);
-      }
+                          (courseData?.id ? allQuizzes.find(q => String(q.course_id) === String(courseData.id)) : null);
+      setLessonQuiz(matchedQuiz || null);
 
       updateOrientation({
         location: `${lessonData.title} Lesson`,

@@ -572,6 +572,17 @@ class LiveSupabaseDataStore:
         except Exception as e:
             logger.error(f"Failed to persist selected teacher to Supabase: {e}")
 
+    def sync_quizzes(self):
+        try:
+            conn = self._get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM public.quizzes ORDER BY created_at DESC;")
+            self.quizzes = {str(r['id']): self._serialize_row(r) for r in cur.fetchall()}
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to sync quizzes from Supabase: {e}")
+
     def save_quiz(self, quiz_dict: Dict[str, Any]) -> Dict[str, Any]:
         qid = str(quiz_dict.get("id") or uuid.uuid4())
         quiz_dict["id"] = qid
@@ -583,11 +594,12 @@ class LiveSupabaseDataStore:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO public.quizzes (
-                    id, lesson_id, title, description, passing_score, questions, created_at
+                    id, course_id, lesson_id, title, description, passing_score, questions, created_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, NOW()
+                    %s, %s, %s, %s, %s, %s, %s, NOW()
                 )
                 ON CONFLICT (id) DO UPDATE SET
+                    course_id = EXCLUDED.course_id,
                     lesson_id = EXCLUDED.lesson_id,
                     title = EXCLUDED.title,
                     description = EXCLUDED.description,
@@ -595,6 +607,7 @@ class LiveSupabaseDataStore:
                     questions = EXCLUDED.questions;
             """, (
                 qid,
+                quiz_dict.get("course_id"),
                 quiz_dict.get("lesson_id"),
                 quiz_dict.get("title", "Mastery Quiz"),
                 quiz_dict.get("description", "Accessible assessment"),

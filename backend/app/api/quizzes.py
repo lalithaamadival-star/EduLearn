@@ -18,17 +18,25 @@ class CreateQuizRequest(BaseModel):
     questions: List[Dict[str, Any]]
 
 @router.get("")
-async def list_quizzes(lesson_id: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
+async def list_quizzes(
+    lesson_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user)
+):
     """
     Returns accessible list of available quizzes.
     """
+    data_store.sync_quizzes()
     quizzes_list = list(data_store.quizzes.values())
     if lesson_id:
         quizzes_list = [q for q in quizzes_list if str(q.get("lesson_id")) == str(lesson_id)]
+    if course_id:
+        quizzes_list = [q for q in quizzes_list if str(q.get("course_id")) == str(course_id)]
     
     return [
         {
             "id": str(q["id"]),
+            "course_id": str(q.get("course_id")) if q.get("course_id") else None,
             "lesson_id": str(q.get("lesson_id")) if q.get("lesson_id") else None,
             "title": q.get("title", "Mastery Quiz"),
             "description": q.get("description", ""),
@@ -51,11 +59,20 @@ async def create_quiz(req: CreateQuizRequest, user: Dict[str, Any] = Depends(get
     if not req.questions:
         raise HTTPException(status_code=400, detail="At least one question is required to create a quiz.")
 
-    # Resolve target lesson_id
-    target_lesson_id = req.lesson_id
-    if not target_lesson_id and req.course_id:
+    # Resolve target lesson_id and target course_id
+    target_course_id = req.course_id if req.course_id else None
+    target_lesson_id = req.lesson_id if req.lesson_id else None
+
+    # If lesson_id provided but not course_id, look up course_id from lesson
+    if target_lesson_id and not target_course_id:
+        les = data_store.lessons.get(str(target_lesson_id))
+        if les:
+            target_course_id = str(les.get("course_id"))
+
+    # If course_id provided but not lesson_id, look up first lesson of that course
+    if not target_lesson_id and target_course_id:
         for les in data_store.lessons.values():
-            if str(les.get("course_id")) == str(req.course_id):
+            if str(les.get("course_id")) == str(target_course_id):
                 target_lesson_id = str(les["id"])
                 break
 
@@ -107,6 +124,7 @@ async def create_quiz(req: CreateQuizRequest, user: Dict[str, Any] = Depends(get
 
     quiz_record = {
         "id": quiz_id,
+        "course_id": target_course_id,
         "lesson_id": target_lesson_id,
         "title": req.title.strip(),
         "description": req.description or "AI-Assisted Diagnostic Assessment",

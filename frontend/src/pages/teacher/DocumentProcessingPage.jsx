@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useToast } from '../../components/common/ToastContext';
 import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOrientationContext';
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
@@ -26,6 +27,7 @@ import {
 
 export function DocumentProcessingPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -61,8 +63,10 @@ export function DocumentProcessingPage() {
     try {
       const job = await api.uploadDocument(file);
       setJobs(prev => [job, ...prev]);
+      toast.success(`"${job.file_name}" uploaded & parsed with Gemini OCR!`);
       announce(`Document processed: ${job.file_name}. Status: Needs Review.`, 'polite');
     } catch (err) {
+      toast.error(err.message || "Document processing could not be completed.");
       announce("Document processing could not be completed. Please retry.", "assertive");
     } finally {
       setUploading(false);
@@ -90,8 +94,10 @@ export function DocumentProcessingPage() {
       setJobs(prev => prev.map(j => j.job_id === updated.job_id ? { ...j, ...updated, status: 'READY' } : j));
       setSelectedJob(prev => ({ ...prev, ...updated, status: 'READY' }));
       setSaveSuccessMsg('✓ Review saved! Document is marked as READY and shared with students.');
+      toast.success("Document review saved & shared with enrolled students!");
       announce("Teacher edits saved. Document marked as Ready for publishing.", "polite");
     } catch (e) {
+      toast.error(e.message || "Failed to save document review.");
       announce("Failed to save document review.", "assertive");
     }
   };
@@ -103,8 +109,10 @@ export function DocumentProcessingPage() {
       const res = await api.publishDocument(selectedJob.job_id);
       setJobs(prev => prev.map(j => j.job_id === selectedJob.job_id ? { ...j, status: 'PUBLISHED' } : j));
       setReviewModalOpen(false);
+      toast.success(`Published as lesson: "${res.lesson.title}"!`);
       announce(`Document published as new lesson: ${res.lesson.title}.`, 'polite');
     } catch (e) {
+      toast.error(e.message || "Publishing failed.");
       announce("Publishing failed.", "assertive");
     } finally {
       setPublishing(false);
@@ -135,8 +143,10 @@ export function DocumentProcessingPage() {
       };
       await api.createQuiz(payload);
       setDocQuizPushed(true);
+      toast.success("Document quiz successfully published to students!");
       announce("Document quiz questions successfully pushed to course quiz section!", "polite");
     } catch (e) {
+      toast.error(e.message || "Failed to push document quiz. Please retry.");
       announce("Failed to push document quiz. Please retry.", "assertive");
     } finally {
       setPushingDocQuiz(false);

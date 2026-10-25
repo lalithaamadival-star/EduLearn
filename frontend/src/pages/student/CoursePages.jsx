@@ -205,7 +205,13 @@ export function CourseDetailPage() {
       api.listQuizzes().catch(() => [])
     ]).then(([courseData, quizzesData]) => {
       setCourse(courseData);
-      setQuizzes(quizzesData || []);
+      const allQuizzes = quizzesData || [];
+      const courseQuizzes = allQuizzes.filter(q => {
+        if (courseData?.id && String(q.course_id) === String(courseData.id)) return true;
+        if (courseData?.modules?.some(m => m.lessons?.some(l => String(l.id) === String(q.lesson_id)))) return true;
+        return false;
+      });
+      setQuizzes(courseQuizzes);
       updateOrientation({
         location: `Course: ${courseData?.title || slug}`,
         section: 'Curriculum Syllabus & Quizzes',
