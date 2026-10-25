@@ -307,13 +307,91 @@ class LiveSupabaseDataStore:
         except Exception as e:
             logger.error(f"Failed to persist quiz attempt to Supabase: {e}")
 
-    def save_assignment_submission(self, assignment_id: str, submission_content: str) -> Optional[Dict[str, Any]]:
+    def sync_assignments(self):
+        try:
+            conn = self._get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM public.assignments ORDER BY created_at DESC;")
+            self.assignments = [self._serialize_row(r) for r in cur.fetchall()]
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to sync assignments: {e}")
+
+    def create_assignment(
+        self,
+        course_id: str,
+        title: str,
+        instructions: str,
+        teacher_id: Optional[str] = None,
+        due_date: Optional[str] = None,
+        max_score: int = 100
+    ) -> Dict[str, Any]:
+        asg_id = str(uuid.uuid4())
+        now_iso = datetime.now(timezone.utc).isoformat()
+        
+        course = self.courses.get(course_id)
+        course_title = course["title"] if course else "Curriculum Course"
+        effective_teacher_id = teacher_id or (course.get("teacher_id") if course else None)
+
+        new_asg = {
+            "id": asg_id,
+            "course_id": course_id,
+            "course_title": course_title,
+            "title": title,
+            "instructions": instructions,
+            "due_date": due_date,
+            "max_score": max_score,
+            "status": "ASSIGNED",
+            "submission_content": None,
+            "submitted_at": None,
+            "score": None,
+            "feedback": None,
+            "created_at": now_iso,
+            "student_id": None,
+            "student_name": None,
+            "teacher_id": str(effective_teacher_id) if effective_teacher_id else None
+        }
+
+        try:
+            conn = self._get_connection()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO public.assignments (
+                    id, course_id, course_title, title, instructions,
+                    due_date, max_score, status, created_at, teacher_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'ASSIGNED', NOW(), %s);
+            """, (
+                asg_id, course_id, course_title, title, instructions,
+                due_date, max_score, effective_teacher_id
+            ))
+            cur.close()
+            conn.close()
+            logger.info(f"Persisted new assignment to Supabase: {asg_id} ({title})")
+        except Exception as e:
+            logger.error(f"Failed to insert assignment into Supabase: {e}")
+
+        self.assignments.insert(0, new_asg)
+        return new_asg
+
+    def save_assignment_submission(
+        self,
+        assignment_id: str,
+        submission_content: str,
+        student_id: Optional[str] = None,
+        student_name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         target_asg = None
         for asg in self.assignments:
             if asg["id"] == assignment_id:
                 asg["status"] = "SUBMITTED"
                 asg["submission_content"] = submission_content
                 asg["submitted_at"] = datetime.now(timezone.utc).isoformat()
+                if student_id:
+                    asg["student_id"] = student_id
+                if student_name:
+                    asg["student_name"] = student_name
                 target_asg = asg
                 break
 
@@ -328,9 +406,11 @@ class LiveSupabaseDataStore:
                 UPDATE public.assignments
                 SET status = 'SUBMITTED',
                     submission_content = %s,
-                    submitted_at = NOW()
+                    submitted_at = NOW(),
+                    student_id = COALESCE(%s, student_id),
+                    student_name = COALESCE(%s, student_name)
                 WHERE id = %s;
-            """, (submission_content, assignment_id))
+            """, (submission_content, student_id, student_name, assignment_id))
             cur.close()
             conn.close()
             logger.info(f"Persisted assignment submission to Supabase: {assignment_id}")
@@ -338,6 +418,53 @@ class LiveSupabaseDataStore:
             logger.error(f"Failed to update assignment in Supabase: {e}")
 
         return target_asg
+
+    def grade_assignment(self, assignment_id: str, score: int, feedback: str) -> Optional[Dict[str, Any]]:
+        target_asg = None
+        for asg in self.assignments:
+            if asg["id"] == assignment_id:
+                asg["status"] = "GRADED"
+                asg["score"] = score
+                asg["feedback"] = feedback
+                target_asg = asg
+                break
+
+        if not target_asg:
+            return None
+
+        try:
+            conn = self._get_connection()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE public.assignments
+                SET status = 'GRADED',
+                    score = %s,
+                    feedback = %s
+                WHERE id = %s;
+            """, (score, feedback, assignment_id))
+            cur.close()
+            conn.close()
+            logger.info(f"Persisted assignment grade to Supabase: {assignment_id} (Score: {score})")
+        except Exception as e:
+            logger.error(f"Failed to grade assignment in Supabase: {e}")
+
+        return target_asg
+
+    def delete_assignment(self, assignment_id: str) -> bool:
+        self.assignments = [a for a in self.assignments if a["id"] != assignment_id]
+        try:
+            conn = self._get_connection()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("DELETE FROM public.assignments WHERE id = %s;", (assignment_id,))
+            cur.close()
+            conn.close()
+            logger.info(f"Deleted assignment from Supabase: {assignment_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete assignment from Supabase: {e}")
+            return False
 
     def save_learning_progress(self, lesson_id: str, student_id: str, time_spent_seconds: int = 900):
         now_iso = datetime.now(timezone.utc).isoformat()

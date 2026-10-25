@@ -93,7 +93,7 @@ export function TeacherCoursesPage() {
               <p className="text-xs text-slate-300 leading-relaxed">{course.description}</p>
               <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-2xs font-mono text-slate-400">Accessible Multi-Modal Curriculum</span>
-                <Link to={`/courses/${course.slug}`}>
+                <Link to={`/teacher/courses/${course.slug}`}>
                   <Button variant="secondary" size="sm" icon={ArrowRight}>
                     View Syllabus & Quizzes
                   </Button>

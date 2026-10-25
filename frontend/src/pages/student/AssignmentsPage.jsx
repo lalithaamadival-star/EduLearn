@@ -77,25 +77,35 @@ export function AssignmentsPage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant={asg.status === 'SUBMITTED' ? 'primary' : 'warning'}>
+                  <Badge variant={asg.status === 'GRADED' ? 'success' : asg.status === 'SUBMITTED' ? 'primary' : 'warning'}>
                     {asg.status}
                   </Badge>
                   <span className="text-2xs font-mono text-slate-400">{asg.course_title}</span>
                 </div>
                 <span className="text-2xs text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Due Soon
+                  <Clock className="w-3.5 h-3.5" /> {asg.due_date ? `Due ${new Date(asg.due_date).toLocaleDateString()}` : 'Due Soon'}
                 </span>
               </div>
 
               <h2 className="text-lg font-bold text-slate-100">{asg.title}</h2>
               <p className="text-xs text-slate-300 leading-relaxed">{asg.instructions}</p>
 
+              {/* Student's Own Submission if submitted */}
+              {asg.submission && (
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 text-xs">
+                  <span className="text-3xs uppercase font-mono font-bold text-slate-400">Your Submitted Response</span>
+                  <p className="font-mono text-slate-300 whitespace-pre-wrap text-2xs bg-slate-900/60 p-2.5 rounded border border-slate-850">
+                    {asg.submission}
+                  </p>
+                </div>
+              )}
+
               {/* Teacher Feedback Block if graded */}
               {asg.feedback && (
                 <div className="p-4 rounded-xl bg-indigo-950/40 border border-indigo-700/50 space-y-2 text-xs">
                   <div className="flex items-center gap-2 font-bold text-indigo-300">
                     <MessageSquare className="w-4 h-4" />
-                    <span>Instructor Evaluation • Score: {asg.score}/{asg.max_score}</span>
+                    <span>Instructor Evaluation • Awarded Score: {asg.score}/{asg.max_score} pts</span>
                   </div>
                   <p className="text-slate-300 leading-relaxed italic">"{asg.feedback}"</p>
                 </div>
@@ -103,13 +113,17 @@ export function AssignmentsPage() {
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-800">
                 <span className="text-2xs font-mono text-slate-400">Max Score: {asg.max_score} pts</span>
-                {asg.status !== 'SUBMITTED' ? (
+                {asg.status === 'ASSIGNED' ? (
                   <Button variant="primary" size="sm" onClick={() => setSelectedAsg(asg)}>
                     Submit Solution
                   </Button>
-                ) : (
+                ) : asg.status === 'GRADED' ? (
                   <span className="text-2xs text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Solution Submitted
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Graded ({asg.score}/{asg.max_score} pts)
+                  </span>
+                ) : (
+                  <span className="text-2xs text-amber-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Solution Submitted (Awaiting Grade)
                   </span>
                 )}
               </div>

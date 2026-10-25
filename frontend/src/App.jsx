@@ -43,6 +43,7 @@ import { ClassesManagementPage } from './pages/teacher/ClassesManagementPage';
 import { DocumentProcessingPage } from './pages/teacher/DocumentProcessingPage';
 import { TeacherAccessibilityPreview } from './pages/teacher/TeacherAccessibilityPreview';
 import { LessonBuilderPage } from './pages/teacher/LessonBuilderPage';
+import { TeacherAssignmentsPage } from './pages/teacher/TeacherAssignmentsPage';
 import {
   TeacherCoursesPage,
   TeacherAIAssistantPage,
@@ -86,7 +87,8 @@ export default function App() {
                     }
                   />
 
-                  {/* Standalone Lesson Reader accessible with full orientation toolbar */}
+                  {/* Standalone Course Details, Lesson Reader, and Quizzes */}
+                  <Route path="courses/:courseSlug" element={<CourseDetailPage />} />
                   <Route path="courses/:courseSlug/lessons/:lessonSlug" element={<LessonReaderPage />} />
                   <Route path="quizzes/:quizId" element={<QuizPage />} />
                 </Route>
@@ -125,8 +127,9 @@ export default function App() {
                   <Route index element={<TeacherDashboard />} />
                   <Route path="classes" element={<ClassesManagementPage />} />
                   <Route path="courses" element={<TeacherCoursesPage />} />
+                  <Route path="courses/:courseSlug" element={<CourseDetailPage />} />
                   <Route path="documents" element={<DocumentProcessingPage />} />
-                  <Route path="assignments" element={<AssignmentsPage />} />
+                  <Route path="assignments" element={<TeacherAssignmentsPage />} />
                   <Route path="accessibility-preview" element={<TeacherAccessibilityPreview />} />
                   <Route path="ai-assistant" element={<TeacherAIAssistantPage />} />
                   <Route path="analytics" element={<TeacherAnalyticsPage />} />

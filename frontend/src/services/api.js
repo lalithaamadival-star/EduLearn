@@ -250,9 +250,56 @@ export const api = {
   },
 
   // Assignments
-  async getAssignments() {
-    const res = await request('/api/assignments', { headers: getAuthHeaders() });
+  async getAssignments(courseId = null, teacherId = null) {
+    const params = new URLSearchParams();
+    if (courseId) params.append('course_id', courseId);
+    if (teacherId) params.append('teacher_id', teacherId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await request(`/api/assignments${query}`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch assignments');
+    return res.json();
+  },
+
+  async createAssignment(payload) {
+    const res = await request('/api/assignments', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to create assignment');
+    }
+    return res.json();
+  },
+
+  async updateAssignment(id, payload) {
+    const res = await request(`/api/assignments/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to update assignment');
+    return res.json();
+  },
+
+  async gradeAssignment(id, { score, feedback }) {
+    const res = await request(`/api/assignments/${id}/grade`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ score, feedback })
+    });
+    if (!res.ok) throw new Error('Failed to submit grade and feedback');
+    return res.json();
+  },
+
+  async deleteAssignment(id) {
+    const res = await request(`/api/assignments/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete assignment');
     return res.json();
   },
 

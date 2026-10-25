@@ -6,7 +6,7 @@ import { useAuditoryOrientation } from '../../features/accessibility/AuditoryOri
 import { SymbolIcon } from '../../components/ui/SymbolIcon';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { BookOpen, ArrowRight, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw, UserCheck, GraduationCap } from 'lucide-react';
+import { BookOpen, ArrowRight, ArrowLeft, Clock, Users, CheckCircle2, FileCode, Sparkles, AlertCircle, RotateCcw, UserCheck, GraduationCap } from 'lucide-react';
 
 export function CourseLibraryPage() {
   const { user, setSelectedTeacher } = useAuth();
@@ -188,6 +188,8 @@ export function CourseLibraryPage() {
 
 export function CourseDetailPage() {
   const { courseSlug } = useParams();
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'TEACHER';
   const { announce, updateOrientation } = useAuditoryOrientation();
   const [course, setCourse] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
@@ -244,9 +246,9 @@ export function CourseDetailPage() {
           <Button variant="primary" size="sm" icon={RotateCcw} onClick={fetchDetail}>
             Retry
           </Button>
-          <Link to="/student/courses">
+          <Link to={isTeacher ? "/teacher/courses" : "/student/courses"}>
             <Button variant="outline" size="sm">
-              Back to Catalog
+              {isTeacher ? "Back to Course Management" : "Back to Catalog"}
             </Button>
           </Link>
         </div>
@@ -261,6 +263,33 @@ export function CourseDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 font-sans">
+      {/* Role-Specific Navigation Bar */}
+      {isTeacher ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-md">
+          <Link to="/teacher/courses" className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4 text-amber-400" />
+            <span>Back to Course Management</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/teacher/assignments">
+              <Button variant="secondary" size="sm" icon={FileCode} className="text-xs">
+                + Assign Coursework
+              </Button>
+            </Link>
+            <Link to="/teacher/lessons/new">
+              <Button variant="accent" size="sm" icon={Sparkles} className="text-xs">
+                + Author Lesson
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <Link to="/student/courses" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Learning Catalog</span>
+        </Link>
+      )}
+
       <div className="space-y-3 pb-6 border-b border-slate-800">
         <Badge variant="primary">{course.category}</Badge>
         <h1 className="text-3xl font-extrabold text-white">{course.title}</h1>
@@ -334,13 +363,13 @@ export function CourseDetailPage() {
                       {quiz && (
                         <Link to={`/quizzes/${quiz.id}`}>
                           <Button variant="outline" size="sm" icon={FileCode} className="text-xs border-amber-500/50 text-amber-300 hover:bg-amber-950/30">
-                            Take Quiz
+                            {isTeacher ? 'Preview Quiz' : 'Take Quiz'}
                           </Button>
                         </Link>
                       )}
                       <Link to={`/courses/${course.slug}/lessons/${les.slug}`}>
                         <Button variant="secondary" size="sm" icon={ArrowRight}>
-                          Study Lesson
+                          {isTeacher ? 'Preview Lesson' : 'Study Lesson'}
                         </Button>
                       </Link>
                     </div>
@@ -372,7 +401,7 @@ export function CourseDetailPage() {
                 </div>
                 <Link to={`/quizzes/${q.id}`} className="pt-2">
                   <Button variant="accent" size="sm" icon={FileCode} className="w-full text-xs">
-                    Start Mastery Quiz
+                    {isTeacher ? 'Preview Assessment' : 'Start Mastery Quiz'}
                   </Button>
                 </Link>
               </div>
