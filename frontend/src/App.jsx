@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AccessibilityProvider } from './features/accessibility/AccessibilityContext';
 import { AuditoryOrientationProvider } from './features/accessibility/AuditoryOrientationContext';
 import { AuthProvider } from './features/auth/AuthContext';
@@ -58,7 +58,7 @@ export default function App() {
         <AuthProvider>
           <ToastProvider>
             <ErrorBoundary>
-              <BrowserRouter>
+              <HashRouter>
               <Routes>
                 {/* Public Experience */}
                 <Route path="/" element={<PublicLayout />}>
@@ -141,7 +141,7 @@ export default function App() {
                 {/* Catch-all redirect to Home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </BrowserRouter>
+            </HashRouter>
           </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>
