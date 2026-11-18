@@ -23,10 +23,16 @@ import {
   Download,
   ChevronRight,
   FileCode,
-  Printer
+  Printer,
+  Copy
 } from 'lucide-react';
 import { useToast } from '../../components/common/ToastContext';
-import { downloadDocumentFile, viewOriginalDocumentFile, cleanDocumentText } from '../../utils/documentUtils';
+import {
+  cleanDocumentText,
+  copyDocumentText,
+  downloadDocumentFile,
+  printOrSaveDocument
+} from '../../utils/documentUtils';
 
 export function StudentDocumentsPage() {
   const { user, setSelectedTeacher } = useAuth();
@@ -316,25 +322,27 @@ export function StudentDocumentsPage() {
                         type="button"
                         onClick={() => {
                           announce(`Opening document ${doc.title || doc.file_name}`, 'polite');
-                          viewOriginalDocumentFile(doc, () => setActiveDoc(doc));
+                          setDocViewMode('original');
+                          setActiveDoc(doc);
                         }}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                        title="View original physical document in new tab"
+                        title="View original document layout"
                       >
-                        <ExternalLink className="w-3 h-3 text-indigo-400" />
-                        <span>View File</span>
+                        <Eye className="w-3 h-3 text-indigo-400" />
+                        <span>View Document</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          announce(`Downloading ${doc.file_name}`, 'polite');
-                          downloadDocumentFile(doc);
-                          toast.success(`Downloaded ${doc.file_name}`);
+                          announce(`Saving ${doc.file_name}`, 'polite');
+                          setDocViewMode('original');
+                          setActiveDoc(doc);
+                          downloadDocumentFile(doc, (msg) => toast.info(msg));
                         }}
                         className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                        title="Download file directly"
+                        title="Save / Print document as PDF"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <Printer className="w-3.5 h-3.5 text-indigo-400" />
                       </button>
                     </div>
 
@@ -414,26 +422,29 @@ export function StudentDocumentsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => viewOriginalDocumentFile(activeDoc)}
+                  onClick={async () => {
+                    const ok = await copyDocumentText(activeDoc);
+                    if (ok) toast.success(`✓ Full document text copied to clipboard! Ready to paste.`);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  title="Open original physical file in new tab"
+                  title="Copy complete document text"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>View Original File</span>
+                  <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Copy Text</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    announce(`Downloading ${activeDoc.file_name}`, 'polite');
-                    downloadDocumentFile(activeDoc);
-                    toast.success(`Downloaded ${activeDoc.file_name}`);
+                    announce(`Saving ${activeDoc.file_name}`, 'polite');
+                    setDocViewMode('original');
+                    downloadDocumentFile(activeDoc, (msg) => toast.info(msg));
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  title="Download source document directly"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-colors cursor-pointer"
+                  title="Save or download document as PDF"
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Download</span>
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Save / Print PDF</span>
                 </button>
 
                 {/* TTS Listen Action */}
@@ -485,7 +496,7 @@ export function StudentDocumentsPage() {
               <div
                 tabIndex="0"
                 aria-label="Original document layout view"
-                className="p-6 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-sans leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 shadow-inner"
+                className="print-document-target p-6 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-sans leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 shadow-inner"
               >
                 <div className="border-b border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
@@ -527,10 +538,10 @@ export function StudentDocumentsPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => viewOriginalDocumentFile(activeDoc)}
+                  onClick={() => setDocViewMode('original')}
                   className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
                 >
-                  Open Original Document ↗
+                  View Original Document Layout ↗
                 </button>
                 <Button variant="outline" size="sm" onClick={handleCloseModal}>
                   Done Reading

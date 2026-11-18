@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { StructuredContentRenderer, stripMarkdownHashes } from '../../components/common/StructuredContentRenderer';
-import { downloadDocumentFile, viewOriginalDocumentFile } from '../../utils/documentUtils';
+import { downloadDocumentFile, copyDocumentText } from '../../utils/documentUtils';
 import {
   Upload,
   FileText,
@@ -23,7 +23,9 @@ import {
   FileCode,
   ExternalLink,
   Download,
-  Eraser
+  Eraser,
+  Printer,
+  Copy
 } from 'lucide-react';
 
 export function DocumentProcessingPage() {
@@ -233,29 +235,20 @@ export function DocumentProcessingPage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => viewOriginalDocumentFile(job)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                    title="View uploaded document in browser"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                    <span>View File</span>
-                  </button>
+                  <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
+                    {job.status === 'PUBLISHED' ? 'View Published Document' : 'Review & Edit Draft'}
+                  </Button>
                   <button
                     type="button"
                     onClick={() => {
-                      downloadDocumentFile(job);
-                      toast.success(`Downloaded ${job.file_name}`);
+                      handleOpenReview(job);
+                      downloadDocumentFile(job, (msg) => toast.info(msg));
                     }}
                     className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                    title="Download original file"
+                    title="Save or print document as PDF"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <Printer className="w-3.5 h-3.5 text-amber-400" />
                   </button>
-                  <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
-                    {job.status === 'PUBLISHED' ? 'View Published Markdown' : 'Review & Edit Draft'}
-                  </Button>
                 </div>
               </div>
             ))}
@@ -291,22 +284,26 @@ export function DocumentProcessingPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => viewOriginalDocumentFile(selectedJob)}
+                onClick={async () => {
+                  const ok = await copyDocumentText(selectedJob);
+                  if (ok) toast.success(`✓ Document text copied to clipboard!`);
+                }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                title="Copy complete document text"
               >
-                <ExternalLink className="w-3 h-3 text-amber-400" />
-                <span>View Original File</span>
+                <Copy className="w-3 h-3 text-amber-400" />
+                <span>Copy Text</span>
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  downloadDocumentFile(selectedJob);
-                  toast.success(`Downloaded ${selectedJob?.file_name}`);
+                  downloadDocumentFile(selectedJob, (msg) => toast.info(msg));
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-2xs font-semibold transition-colors cursor-pointer"
+                title="Save / Print document as PDF"
               >
-                <Download className="w-3 h-3" />
-                <span>Download</span>
+                <Printer className="w-3 h-3" />
+                <span>Save / Print PDF</span>
               </button>
             </div>
           </div>

@@ -27,10 +27,17 @@ import {
   ChevronRight,
   ExternalLink,
   Download,
-  FileCode
+  FileCode,
+  Printer,
+  Copy
 } from 'lucide-react';
 import { useToast } from '../../components/common/ToastContext';
-import { downloadDocumentFile, viewOriginalDocumentFile, cleanDocumentText } from '../../utils/documentUtils';
+import {
+  downloadDocumentFile,
+  copyDocumentText,
+  printOrSaveDocument,
+  cleanDocumentText
+} from '../../utils/documentUtils';
 
 export function StudentDashboard() {
   const { user, setSelectedTeacher } = useAuth();
@@ -366,25 +373,24 @@ export function StudentDashboard() {
                         type="button"
                         onClick={() => {
                           announce(`Opening document ${doc.title || doc.file_name}`, 'polite');
-                          viewOriginalDocumentFile(doc, () => setReadingDoc(doc));
+                          setReadingDoc(doc);
                         }}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-3xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                        title="View original physical document"
+                        title="View document"
                       >
-                        <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
+                        <Eye className="w-2.5 h-2.5 text-indigo-400" />
                         <span>File</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          announce(`Downloading ${doc.file_name}`, 'polite');
-                          downloadDocumentFile(doc);
-                          toast.success(`Downloaded ${doc.file_name}`);
+                          setReadingDoc(doc);
+                          downloadDocumentFile(doc, (msg) => toast.info(msg));
                         }}
                         className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                        title="Download file directly"
+                        title="Save / Download document as PDF"
                       >
-                        <Download className="w-3 h-3" />
+                        <Printer className="w-3 h-3 text-indigo-400" />
                       </button>
                     </div>
 
@@ -633,26 +639,28 @@ export function StudentDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => viewOriginalDocumentFile(readingDoc)}
+                  onClick={async () => {
+                    const ok = await copyDocumentText(readingDoc);
+                    if (ok) toast.success(`✓ Document text copied to clipboard!`);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  title="Open original uploaded file in new tab"
+                  title="Copy full document text"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>View Original File</span>
+                  <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Copy Text</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    announce(`Downloading ${readingDoc.file_name}`, 'polite');
-                    downloadDocumentFile(readingDoc);
-                    toast.success(`Downloaded ${readingDoc.file_name}`);
+                    announce(`Saving ${readingDoc.file_name}`, 'polite');
+                    downloadDocumentFile(readingDoc, (msg) => toast.info(msg));
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  title="Download file directly"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-colors cursor-pointer"
+                  title="Save or download document as PDF"
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Download</span>
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Save / Print PDF</span>
                 </button>
 
                 <button
@@ -714,10 +722,12 @@ export function StudentDashboard() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => viewOriginalDocumentFile(readingDoc)}
-                  className="text-xs text-slate-400 hover:text-slate-300 underline underline-offset-2 bg-transparent border-none p-0 cursor-pointer"
+                  onClick={() => {
+                    downloadDocumentFile(readingDoc, (msg) => toast.info(msg));
+                  }}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 bg-transparent border-none p-0 cursor-pointer"
                 >
-                  Source File ({readingDoc.file_name})
+                  Save / Print ({readingDoc.file_name})
                 </button>
               </div>
               <Button variant="outline" size="sm" onClick={handleCloseDocModal}>
