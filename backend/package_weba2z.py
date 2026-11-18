@@ -3,8 +3,10 @@ import zipfile
 
 dist_dir = r'c:\Users\USER\OneDrive\Desktop\EduLearn\frontend\dist'
 assets_dir = os.path.join(dist_dir, 'assets')
-desktop_zip = r'c:\Users\USER\OneDrive\Desktop\EduLearn.zip'
-project_zip = r'c:\Users\USER\OneDrive\Desktop\EduLearn\EduLearn.zip'
+desktop_prj_zip = r'c:\Users\USER\OneDrive\Desktop\PRJ135.zip'
+project_prj_zip = r'c:\Users\USER\OneDrive\Desktop\EduLearn\PRJ135.zip'
+desktop_edulearn_zip = r'c:\Users\USER\OneDrive\Desktop\EduLearn.zip'
+project_edulearn_zip = r'c:\Users\USER\OneDrive\Desktop\EduLearn\EduLearn.zip'
 
 # Find the CSS and JS files in assets
 css_file = next((f for f in os.listdir(assets_dir) if f.endswith('.css')), None)
@@ -87,10 +89,20 @@ with open(os.path.join(dist_dir, 'index.php'), 'w', encoding='utf-8') as f:
 with open(os.path.join(dist_dir, '.htaccess'), 'w', encoding='utf-8') as f:
     f.write("<IfModule mod_mime.c>\n  AddType application/javascript js mjs\n  AddType text/css css\n</IfModule>\n")
 
-# Package into EduLearn.zip
-for zp in [desktop_zip, project_zip]:
+# Package into PRJ135.zip and EduLearn.zip
+packages = [
+    desktop_prj_zip,
+    project_prj_zip,
+    desktop_edulearn_zip,
+    project_edulearn_zip
+]
+
+for zp in packages:
     if os.path.exists(zp):
-        os.remove(zp)
+        try:
+            os.remove(zp)
+        except Exception:
+            pass
     with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(dist_dir):
             for file in files:
