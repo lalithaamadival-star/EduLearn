@@ -10,23 +10,23 @@ class Settings(BaseSettings):
     BACKEND_URL: str = "http://localhost:8000"
 
     # Supabase & Database Configuration
-    SUPABASE_URL: str = ""
-    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_URL: str = "https://kifrsztsdyohfxlfhiih.supabase.co"
+    SUPABASE_ANON_KEY: str = "sb_publishable_XIXJggVvrwFoo3Ta9_lJ2w_vUoYWHWY"
     SUPABASE_SERVICE_ROLE_KEY: str = ""
-    DATABASE_URL: str = ""
+    DATABASE_URL: str = "postgresql://postgres.kifrsztsdyohfxlfhiih:vZvJPoTqztvdm45J@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
 
     # Primary AI Provider (Groq)
     PRIMARY_AI_PROVIDER: str = "groq"
-    GROQ_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = ""
     GROQ_MODEL: str = "openai/gpt-oss-120b"
 
     # Secondary AI Provider (OpenRouter)
     FALLBACK_AI_PROVIDER: str = "openrouter"
-    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = ""
     OPENROUTER_MODEL: str = "nvidia/nemotron-3.5-super-vl:free"
 
     # Document Intelligence (Gemini)
-    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = ""
     GEMINI_MODEL: str = "gemini-3.8-flash"
     GEMINI_FALLBACK_MODEL: str = "gemini-3.5-flash-lite"
 

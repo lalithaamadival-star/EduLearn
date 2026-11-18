@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { StructuredContentRenderer, stripMarkdownHashes } from '../../components/common/StructuredContentRenderer';
+import { downloadDocumentFile, viewOriginalDocumentFile } from '../../utils/documentUtils';
 import {
   Upload,
   FileText,
@@ -232,24 +233,26 @@ export function DocumentProcessingPage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={job.file_url || `/api/documents/${job.job_id}/file`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => viewOriginalDocumentFile(job)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
                     title="View uploaded document in browser"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
                     <span>View File</span>
-                  </a>
-                  <a
-                    href={job.download_url || `/api/documents/${job.job_id}/download`}
-                    download={job.file_name}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadDocumentFile(job);
+                      toast.success(`Downloaded ${job.file_name}`);
+                    }}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
                     title="Download original file"
                   >
                     <Download className="w-3.5 h-3.5" />
-                  </a>
+                  </button>
                   <Button variant="secondary" size="sm" onClick={() => handleOpenReview(job)} icon={Eye}>
                     {job.status === 'PUBLISHED' ? 'View Published Markdown' : 'Review & Edit Draft'}
                   </Button>
@@ -286,23 +289,25 @@ export function DocumentProcessingPage() {
               <span className="text-3xs text-slate-500 font-mono">({selectedJob?.job_id})</span>
             </div>
             <div className="flex items-center gap-2">
-              <a
-                href={selectedJob?.file_url || `/api/documents/${selectedJob?.job_id}/file`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+              <button
+                type="button"
+                onClick={() => viewOriginalDocumentFile(selectedJob)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
               >
                 <ExternalLink className="w-3 h-3 text-amber-400" />
                 <span>View Original File</span>
-              </a>
-              <a
-                href={selectedJob?.download_url || `/api/documents/${selectedJob?.job_id}/download`}
-                download={selectedJob?.file_name}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  downloadDocumentFile(selectedJob);
+                  toast.success(`Downloaded ${selectedJob?.file_name}`);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
               >
                 <Download className="w-3 h-3" />
                 <span>Download</span>
-              </a>
+              </button>
             </div>
           </div>
 

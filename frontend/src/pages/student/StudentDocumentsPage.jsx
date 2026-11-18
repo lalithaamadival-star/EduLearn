@@ -21,11 +21,16 @@ import {
   RotateCcw,
   ExternalLink,
   Download,
-  ChevronRight
+  ChevronRight,
+  FileCode,
+  Printer
 } from 'lucide-react';
+import { useToast } from '../../components/common/ToastContext';
+import { downloadDocumentFile, viewOriginalDocumentFile, cleanDocumentText } from '../../utils/documentUtils';
 
 export function StudentDocumentsPage() {
   const { user, setSelectedTeacher } = useAuth();
+  const toast = useToast();
   const { announce, updateOrientation } = useAuditoryOrientation();
 
   const [documents, setDocuments] = useState([]);
@@ -34,6 +39,7 @@ export function StudentDocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDoc, setActiveDoc] = useState(null);
+  const [docViewMode, setDocViewMode] = useState('accessible'); // 'accessible' | 'original'
   const [isReading, setIsReading] = useState(false);
   const [switching, setSwitching] = useState(false);
 
@@ -306,31 +312,40 @@ export function StudentDocumentsPage() {
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <a
-                        href={doc.file_url || `/api/documents/${doc.job_id}/file`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors"
-                        title="View original physical file in browser"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          announce(`Opening document ${doc.title || doc.file_name}`, 'polite');
+                          viewOriginalDocumentFile(doc, () => setActiveDoc(doc));
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-2xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                        title="View original physical document in new tab"
                       >
                         <ExternalLink className="w-3 h-3 text-indigo-400" />
                         <span>View File</span>
-                      </a>
-                      <a
-                        href={doc.download_url || `/api/documents/${doc.job_id}/download`}
-                        download={doc.file_name}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-                        title="Download original file"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          announce(`Downloading ${doc.file_name}`, 'polite');
+                          downloadDocumentFile(doc);
+                          toast.success(`Downloaded ${doc.file_name}`);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                        title="Download file directly"
                       >
                         <Download className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                     </div>
 
                     <Button
                       variant="primary"
                       size="sm"
                       icon={Eye}
-                      onClick={() => setActiveDoc(doc)}
+                      onClick={() => {
+                        setDocViewMode('accessible');
+                        setActiveDoc(doc);
+                      }}
                       className="text-xs"
                     >
                       Read Study Guide
@@ -343,7 +358,7 @@ export function StudentDocumentsPage() {
         </div>
       )}
 
-      {/* Accessible Document Reader Modal */}
+      {/* Accessible Document Reader & Original Document Modal */}
       {activeDoc && (
         <Modal
           isOpen={!!activeDoc}
@@ -351,8 +366,42 @@ export function StudentDocumentsPage() {
           title={activeDoc.title || activeDoc.file_name}
           maxWidth="max-w-3xl"
         >
-          <div className="space-y-5">
-            {/* Metadata Bar with File View & Download actions */}
+          <div className="space-y-4">
+            {/* View Mode Switcher: Accessible Reader vs Original Document Preview */}
+            <div className="flex items-center justify-between gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setDocViewMode('accessible')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    docViewMode === 'accessible'
+                      ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Accessible Reading Mode</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocViewMode('original')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    docViewMode === 'original'
+                      ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <FileCode className="w-3.5 h-3.5" />
+                  <span>Original Document Layout</span>
+                </button>
+              </div>
+
+              <span className="text-3xs text-slate-500 font-mono hidden sm:inline">
+                {activeDoc.file_name}
+              </span>
+            </div>
+
+            {/* Metadata Bar with File View, Download, and TTS actions */}
             <div className="p-3 rounded-xl bg-slate-950 border border-slate-850 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-4 h-4 text-indigo-400" />
@@ -363,31 +412,35 @@ export function StudentDocumentsPage() {
 
               {/* Action Toolbar */}
               <div className="flex items-center gap-2">
-                <a
-                  href={activeDoc.file_url || `/api/documents/${activeDoc.job_id}/file`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
-                  title="Open original uploaded file directly"
+                <button
+                  type="button"
+                  onClick={() => viewOriginalDocumentFile(activeDoc)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                  title="Open original physical file in new tab"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
                   <span>View Original File</span>
-                </a>
+                </button>
 
-                <a
-                  href={activeDoc.download_url || `/api/documents/${activeDoc.job_id}/download`}
-                  download={activeDoc.file_name}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
-                  title="Download source document"
+                <button
+                  type="button"
+                  onClick={() => {
+                    announce(`Downloading ${activeDoc.file_name}`, 'polite');
+                    downloadDocumentFile(activeDoc);
+                    toast.success(`Downloaded ${activeDoc.file_name}`);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                  title="Download source document directly"
                 >
                   <Download className="w-3.5 h-3.5 text-slate-300" />
                   <span>Download</span>
-                </a>
+                </button>
 
                 {/* TTS Listen Action */}
                 <button
+                  type="button"
                   onClick={() => handleToggleTTS(activeDoc.extracted_markdown || activeDoc.markdown_preview || '')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isReading
                       ? 'bg-rose-600 text-white shadow-lg animate-pulse'
                       : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
@@ -426,16 +479,45 @@ export function StudentDocumentsPage() {
               </div>
             )}
 
-            {/* Document Content Viewport: Rendered cleanly via StructuredContentRenderer (zero '#' marks) */}
-            <div
-              tabIndex="0"
-              aria-label="Study document content reading viewport"
-              className="p-5 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            >
-              <StructuredContentRenderer
-                rawContent={stripMarkdownHashes(activeDoc.extracted_markdown || activeDoc.markdown_preview || 'No text extracted for this document.')}
-              />
-            </div>
+            {/* Document Content Viewport */}
+            {docViewMode === 'original' ? (
+              /* Original Document Layout View */
+              <div
+                tabIndex="0"
+                aria-label="Original document layout view"
+                className="p-6 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-sans leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 shadow-inner"
+              >
+                <div className="border-b border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-3xs uppercase font-mono font-bold text-indigo-400">Original Document Preview</span>
+                    <h3 className="text-base font-bold text-white">{activeDoc.title || activeDoc.file_name}</h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {activeDoc.file_name} • By {activeDoc.teacher_name || currentTeacherObj?.full_name || 'Faculty Educator'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-3xs font-mono text-emerald-400 font-bold">
+                      OCR & LAYOUT VERIFIED
+                    </span>
+                  </div>
+                </div>
+
+                <div className="prose prose-invert max-w-none text-xs sm:text-sm whitespace-pre-wrap font-serif leading-relaxed text-slate-200 bg-slate-950/70 p-5 rounded-lg border border-slate-800">
+                  {cleanDocumentText(activeDoc.extracted_markdown || activeDoc.markdown_preview || 'No document text found.')}
+                </div>
+              </div>
+            ) : (
+              /* Accessible Reading View (zero '#' markers) */
+              <div
+                tabIndex="0"
+                aria-label="Study document content reading viewport"
+                className="p-5 max-h-[55vh] overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <StructuredContentRenderer
+                  rawContent={stripMarkdownHashes(activeDoc.extracted_markdown || activeDoc.markdown_preview || 'No text extracted for this document.')}
+                />
+              </div>
+            )}
 
             {/* Modal Footer */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-800">
@@ -443,14 +525,13 @@ export function StudentDocumentsPage() {
                 Source File: <strong className="text-slate-200 font-mono">{activeDoc.file_name}</strong> • Full accessible typography active
               </span>
               <div className="flex items-center gap-3">
-                <a
-                  href={activeDoc.file_url || `/api/documents/${activeDoc.job_id}/file`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-2"
+                <button
+                  type="button"
+                  onClick={() => viewOriginalDocumentFile(activeDoc)}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-2 cursor-pointer bg-transparent border-none p-0"
                 >
                   Open Original Document ↗
-                </a>
+                </button>
                 <Button variant="outline" size="sm" onClick={handleCloseModal}>
                   Done Reading
                 </Button>

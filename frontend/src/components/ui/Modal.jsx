@@ -5,32 +5,50 @@ import { IconButton } from './Button';
 export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-xl' }) {
   const modalRef = useRef(null);
   const previousFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const wasOpenRef = useRef(false);
 
+  // Keep latest onClose callback reference without triggering re-focus
   useEffect(() => {
-    if (isOpen) {
+    onCloseRef.current = onClose;
+  });
+
+  // Manage focus solely on open/close transitions
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
       previousFocusRef.current = document.activeElement;
-      // Focus modal container
-      if (modalRef.current) {
+      // Focus modal container once on initial open
+      if (modalRef.current && !modalRef.current.contains(document.activeElement)) {
         modalRef.current.focus();
       }
-
-      // Handle Escape key
-      const handleKeyDown = (e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          onClose();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        if (previousFocusRef.current && previousFocusRef.current.focus) {
+    } else if (!isOpen && wasOpenRef.current) {
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+        try {
           previousFocusRef.current.focus();
-        }
-      };
+        } catch (_) {}
+      }
     }
-  }, [isOpen, onClose]);
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Handle keyboard events (Escape to dismiss)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (onCloseRef.current) {
+          onCloseRef.current();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

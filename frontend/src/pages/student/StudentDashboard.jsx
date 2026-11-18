@@ -26,17 +26,22 @@ import {
   VolumeX,
   ChevronRight,
   ExternalLink,
-  Download
+  Download,
+  FileCode
 } from 'lucide-react';
+import { useToast } from '../../components/common/ToastContext';
+import { downloadDocumentFile, viewOriginalDocumentFile, cleanDocumentText } from '../../utils/documentUtils';
 
 export function StudentDashboard() {
   const { user, setSelectedTeacher } = useAuth();
+  const toast = useToast();
   const { announce } = useAuditoryOrientation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
   const [readingDoc, setReadingDoc] = useState(null);
+  const [docViewMode, setDocViewMode] = useState('accessible');
   const [isReadingAudio, setIsReadingAudio] = useState(false);
 
   const fetchDashboard = (teacherId = null) => {
@@ -357,24 +362,30 @@ export function StudentDashboard() {
 
                   <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <a
-                        href={doc.file_url || `/api/documents/${doc.job_id}/file`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-3xs font-semibold border border-slate-700 transition-colors"
-                        title="View actual physical document"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          announce(`Opening document ${doc.title || doc.file_name}`, 'polite');
+                          viewOriginalDocumentFile(doc, () => setReadingDoc(doc));
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-3xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                        title="View original physical document"
                       >
                         <ExternalLink className="w-2.5 h-2.5 text-indigo-400" />
                         <span>File</span>
-                      </a>
-                      <a
-                        href={doc.download_url || `/api/documents/${doc.job_id}/download`}
-                        download={doc.file_name}
-                        className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-                        title="Download file"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          announce(`Downloading ${doc.file_name}`, 'polite');
+                          downloadDocumentFile(doc);
+                          toast.success(`Downloaded ${doc.file_name}`);
+                        }}
+                        className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                        title="Download file directly"
                       >
                         <Download className="w-3 h-3" />
-                      </a>
+                      </button>
                     </div>
 
                     <Button
@@ -620,30 +631,33 @@ export function StudentDashboard() {
 
               {/* Action Toolbar */}
               <div className="flex items-center gap-2">
-                <a
-                  href={readingDoc.file_url || `/api/documents/${readingDoc.job_id}/file`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => viewOriginalDocumentFile(readingDoc)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
                   title="Open original uploaded file in new tab"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
                   <span>View Original File</span>
-                </a>
+                </button>
 
-                <a
-                  href={readingDoc.download_url || `/api/documents/${readingDoc.job_id}/download`}
-                  download={readingDoc.file_name}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
-                  title="Download file"
+                <button
+                  type="button"
+                  onClick={() => {
+                    announce(`Downloading ${readingDoc.file_name}`, 'polite');
+                    downloadDocumentFile(readingDoc);
+                    toast.success(`Downloaded ${readingDoc.file_name}`);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                  title="Download file directly"
                 >
                   <Download className="w-3.5 h-3.5 text-slate-300" />
                   <span>Download</span>
-                </a>
+                </button>
 
                 <button
                   onClick={() => handleToggleTTS(readingDoc.extracted_markdown || readingDoc.markdown_preview || '')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isReadingAudio
                       ? 'bg-rose-600 text-white shadow-lg animate-pulse'
                       : 'bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
@@ -698,14 +712,13 @@ export function StudentDashboard() {
                     Open full Study Materials Hub →
                   </span>
                 </Link>
-                <a
-                  href={readingDoc.file_url || `/api/documents/${readingDoc.job_id}/file`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-400 hover:text-slate-300 underline underline-offset-2"
+                <button
+                  type="button"
+                  onClick={() => viewOriginalDocumentFile(readingDoc)}
+                  className="text-xs text-slate-400 hover:text-slate-300 underline underline-offset-2 bg-transparent border-none p-0 cursor-pointer"
                 >
                   Source File ({readingDoc.file_name})
-                </a>
+                </button>
               </div>
               <Button variant="outline" size="sm" onClick={handleCloseDocModal}>
                 Done Reading

@@ -91,6 +91,10 @@ export function TeacherAssignmentsPage() {
     }
   };
 
+  const handleCloseCreateModal = React.useCallback(() => {
+    setCreateModalOpen(false);
+  }, []);
+
   const handleOpenCreateModal = (preselectedCourseId = null, mode = 'manual') => {
     if (preselectedCourseId) {
       setNewCourseId(preselectedCourseId);
@@ -534,7 +538,7 @@ export function TeacherAssignmentsPage() {
       {/* ------------------------------------------------------------- */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={handleCloseCreateModal}
         title="Assign Coursework to Students"
         maxWidth="max-w-2xl"
       >
@@ -625,21 +629,35 @@ export function TeacherAssignmentsPage() {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                <div className="flex items-center gap-2 text-2xs text-slate-400">
-                  <span>Quick:</span>
+                <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-400">
+                  <span className="font-semibold text-slate-300">Quick:</span>
                   <button
                     type="button"
                     onClick={() => setAiTopic('Object References & id() Equality')}
-                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
                   >
                     Memory References
                   </button>
                   <button
                     type="button"
                     onClick={() => setAiTopic('Asymptotic Space Complexity & Recursion')}
-                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
                   >
                     Big-O & Recursion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiTopic('Binary Search Trees & Traversal Invariants')}
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                  >
+                    Binary Search Trees
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiTopic('Divide & Conquer Merge Sort Efficiency')}
+                    className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                  >
+                    Merge Sort
                   </button>
                 </div>
 
